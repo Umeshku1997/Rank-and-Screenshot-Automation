@@ -596,7 +596,7 @@ def is_finished(name, process):
 
 def main():
 
-    mode = (sys.argv[1].lower() if len(sys.argv) > 1 else "split")
+    mode = (sys.argv[1].lower() if len(sys.argv) > 1 else "together")
 
     if mode == "together":
         mode = "both"
