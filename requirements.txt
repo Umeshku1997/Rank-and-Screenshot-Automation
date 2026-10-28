@@ -1,6 +1,6 @@
 flask
-flask-cors
-selenium
-requests
-webdriver-manager
 gunicorn
+selenium
+webdriver-manager
+requests
+openpyxl
