@@ -1,16 +1,10 @@
 FROM python:3.10-slim
 
-# Install Chromium Driver & Git Dependencies
+# Install latest Chromium & Chromium Driver
 RUN apt-get update && apt-get install -y \
     wget \
-    gnupg \
-    unzip \
     curl \
     git \
-    libglib2.0-0 \
-    libnss3 \
-    libgconf-2-4 \
-    libfontconfig1 \
     chromium \
     chromium-driver \
     && rm -rf /var/lib/apt/lists/*
