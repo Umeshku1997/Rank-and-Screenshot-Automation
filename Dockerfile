@@ -1,30 +1,37 @@
-FROM node:18-bullseye
+FROM node:18-bullseye-slim
 
-# System Level Chrome Dependencies + Google Chrome Install
+# Install system dependencies & Python
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    python3-venv \
     wget \
     gnupg \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
+    curl \
+    ca-certificates \
+    chromium \
+    chromium-driver \
     && rm -rf /var/lib/apt/lists/*
+
+# Set Environment variables for Headless Chromium
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=utf-8
 
 WORKDIR /app
 
+# Copy dependency files
 COPY package*.json ./
-COPY requirements.txt ./
-
 RUN npm install
-RUN pip3 install -r requirements.txt
 
+# Copy Python requirements if exists
+COPY requirements.txt ./
+RUN pip3 install --no-cache-dir -r requirements.txt || true
+
+# Copy full application code
 COPY . .
-
-ENV CHROME_BIN=/usr/bin/google-chrome
-ENV PYTHONUNBUFFERED=1
 
 EXPOSE 10000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
