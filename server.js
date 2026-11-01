@@ -9,6 +9,7 @@ import fs from 'fs';
 dotenv.config();
 
 const app = express();
+// Priority to Render PORT environment variable
 const PORT = process.env.PORT || 10000;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,10 +55,8 @@ app.get('/api/run-automation', (req, res) => {
 
     res.write(`data: ${JSON.stringify({ log: "🚀 Initializing Desktop & Mobile Automation Tasks...\n" })}\n\n`);
 
-    // Spawn Desktop Rank Tracker
+    // Direct Parallel Spawning of Desktop and Mobile Trackers
     const desktopProc = spawn(pythonExecutable, ['desktop_rank.py'], { cwd: projectRoot, env: customEnv });
-    
-    // Spawn Mobile Rank Tracker
     const mobileProc = spawn(pythonExecutable, ['mobile_rank.py'], { cwd: projectRoot, env: customEnv });
 
     let activeProcesses = 2;
@@ -72,11 +71,11 @@ app.get('/api/run-automation', (req, res) => {
         });
     };
 
-    // Handle Desktop Logs
+    // Stream logs for Desktop process
     desktopProc.stdout.on('data', (d) => handleData(d, '[DESKTOP]'));
     desktopProc.stderr.on('data', (d) => handleData(d, '[DESKTOP ERROR]'));
 
-    // Handle Mobile Logs
+    // Stream logs for Mobile process
     mobileProc.stdout.on('data', (d) => handleData(d, '[MOBILE]'));
     mobileProc.stderr.on('data', (d) => handleData(d, '[MOBILE ERROR]'));
 
