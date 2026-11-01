@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gempundit Catalog Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background-color: #f4f6fb;
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: #ffffff;
+      padding: 16px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 20px;
+      box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+    }
+
+    .brand-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+    }
+
+    .admin-badge {
+      background-color: #dcfce7;
+      color: #166534;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: none;
+    }
+
+    body.admin-mode .admin-badge {
+      display: inline-block;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-light {
+      background-color: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+
+    .btn-light:hover { background-color: #e2e8f0; }
+
+    .btn-purple {
+      background-color: #6366f1;
+      color: white;
+      box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+    }
+
+    .btn-purple:hover { background-color: #4f46e5; }
+
+    .btn-green {
+      background-color: #059669;
+      color: white;
+      box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+    }
+
+    .btn-green:hover { background-color: #047857; }
+
+    .btn-dark {
+      background-color: #0f172a;
+      color: white;
+    }
+
+    .btn-dark:hover { background-color: #1e293b; }
+
+    .admin-only { display: none !important; }
+
+    body.admin-mode .admin-only { display: flex !important; }
+
+    main {
+      flex: 1;
+      max-width: 1300px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 36px 40px;
+      padding-bottom: 90px;
+    }
+
+    .hidden { display: none !important; }
+
+    .section-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-hint {
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .module-card {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .module-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .card-icon-wrapper {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background-color: #eef2ff;
+      color: #6366f1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .badge-count {
+      background-color: #f1f5f9;
+      color: #6366f1;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid #e0e7ff;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background-color: #f8fafc;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    .icon-btn:hover {
+      background-color: #fee2e2;
+      color: #ef4444;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 24px;
+      min-height: 24px;
+    }
+
+    .open-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      color: #4f46e5;
+      font-weight: 600;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      cursor: pointer;
+      padding-top: 12px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .open-btn:hover { color: #3730a3; }
+
+    .module-header-banner {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .banner-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .back-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background-color: #f8fafc;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .back-btn:hover {
+      background-color: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .banner-title-box h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .banner-title-box p {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .scripts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .script-card {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .script-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 12px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .script-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .script-type-tag {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6366f1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .script-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+    }
+
+    .path-black-box {
+      background-color: #0b0f19;
+      color: #10b981;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      word-break: break-all;
+      margin-bottom: 16px;
+      border: 1px solid #1e293b;
+    }
+
+    .btn-execute {
+      width: 100%;
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background-color 0.2s;
+    }
+
+    .btn-execute:hover { background-color: #4338ca; }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .terminal-card {
+      background-color: #0b0f19;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .terminal-modal-header {
+      background-color: #161e2e;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .window-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-btn {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .control-btn:hover {
+      background-color: #334155;
+      color: #ffffff;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .close-btn:hover { color: white; }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      background-color: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    .terminal-body {
+      display: flex;
+      gap: 12px;
+      height: 480px;
+      background-color: #090d16;
+      padding: 12px;
+    }
+
+    .terminal-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #0b0f19;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .pane-header {
+      background-color: #161e2e;
+      color: #38bdf8;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .pane-content {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #a7f3d0;
+      white-space: pre-wrap;
+    }
+
+    .task-dock-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #0f172a;
+      border-top: 1px solid #334155;
+      padding: 10px 24px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      overflow-x: auto;
+      z-index: 900;
+    }
+
+    .dock-item {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .dock-item:hover {
+      background-color: #334155;
+      border-color: #6366f1;
+    }
+
+    .dock-item.active {
+      border-color: #10b981;
+      background-color: #090d16;
+    }
+
+    .dock-close-btn {
+      color: #94a3b8;
+      font-size: 14px;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+
+    .dock-close-btn:hover { color: #ef4444; }
+
+    .form-card {
+      background-color: #ffffff;
+      border-radius: 16px;
+      width: 480px;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+
+    .form-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 12px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-section">
+      <div class="logo-icon">G</div>
+      <div>
+        <span class="brand-title">Gempundit Catalog</span>
+        <span id="adminBadge" class="admin-badge">Admin Mode</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-light admin-only" onclick="resetDefault()">↻ Reset Default</button>
+      <button class="btn btn-purple admin-only" onclick="addModule()">+ Add Top Module</button>
+      <button id="authBtn" class="btn btn-dark" onclick="toggleAdminMode()">🔒 Admin Login</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="level1View">
+      <div class="section-title-row">
+        <h2 class="section-title">
+          <svg width="20" height="20" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+          Primary Catalog Modules
+        </h2>
+        <span class="section-hint">Click on any module card to open its script buttons</span>
+      </div>
+
+      <div id="modulesGrid" class="modules-grid"></div>
+    </div>
+
+    <div id="level2View" class="hidden">
+      <div class="module-header-banner">
+        <div class="banner-left">
+          <button class="back-btn" onclick="showLevel1()">&larr;</button>
+          <div class="banner-title-box">
+            <h2 id="currentModuleTitle">SEO Automation</h2>
+            <p id="currentModuleDesc">Schema, Rank & Audits</p>
+          </div>
+        </div>
+        <button class="btn btn-green admin-only" onclick="openAddScriptModal()">&lt;/&gt; + Add Button & Script</button>
+      </div>
+
+      <div id="scriptsGrid" class="scripts-grid"></div>
+    </div>
+  </main>
+
+  <div id="taskDockBar" class="task-dock-bar hidden"></div>
+
+  <div id="scriptFormModal" class="modal-overlay hidden">
+    <div class="form-card">
+      <div class="form-header">
+        <h3 id="formModalTitle" style="font-size: 16px; color: #0f172a;">Add New Script</h3>
+        <button class="close-btn" style="color: #64748b;" onclick="closeScriptModal()">&times;</button>
+      </div>
+      
+      <div class="form-group">
+        <label>Script Title / Display Name</label>
+        <input type="text" id="inputScriptName" class="form-control" placeholder="e.g. Run Desktop & Mobile Together">
+      </div>
+
+      <div class="form-group">
+        <label>Python File Name or Path</label>
+        <input type="text" id="inputScriptPath" class="form-control" placeholder="e.g. D:\Python code\zip\Ai Overview\MOBILE.py">
+      </div>
+
+      <div class="form-group">
+        <label>Execution Terminal Mode</label>
+        <select id="inputScriptMode" class="form-control">
+          <option value="dual">Dual Split-Screen (Desktop + Mobile)</option>
+          <option value="single">Single Window Terminal</option>
+        </select>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-light" onclick="closeScriptModal()">Cancel</button>
+        <button class="btn btn-purple" onclick="saveScriptFromModal()">Save Script</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="terminalModal" class="modal-overlay hidden">
+    <div id="terminalCard" class="modal-card terminal-card" style="max-width: 1050px; width: 95%;">
+      <div class="terminal-modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="status-dot"></span>
+          <h3 id="terminalTitle" style="font-size: 13px; color: #f8fafc; font-weight: 600;">Live Real-time Terminal</h3>
+        </div>
+        <div class="window-actions">
+          <button id="minimizeBtn" class="control-btn" onclick="minimizeCurrentTerminal()">_ Minimize</button>
+          <button id="closeTerminalBtn" class="close-btn" onclick="closeActiveTerminal()">&times;</button>
+        </div>
+      </div>
+      
+      <div id="terminalBody" class="terminal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    let isAdmin = false;
+    let activeModuleIndex = null;
+    let editingScriptIndex = null;
+
+    let runningTasks = {}; 
+    let activeTaskId = null;
+
+    const defaultModules = [
+      {
+        id: 'seo_automation',
+        title: 'SEO Automation',
+        desc: 'Schema, Rank & Audits',
+        icon: '📈',
+        scripts: [
+          { name: 'Run Desktop & Mobile Together', path: 'run_both.py', mode: 'dual' },
+          { name: 'Desktop Rank Tracker', path: 'desktop_rank.py', mode: 'single' },
+          { name: 'Mobile Rank Tracker', path: 'mobile_rank.py', mode: 'single' }
+        ]
+      },
+      {
+        id: 'magento_catalog',
+        title: 'Magento Catalog',
+        desc: 'Magento Store SKUs & Sync',
+        icon: '🛍️',
+        scripts: [
+          { name: 'Magento Mobile Overview', path: 'MOBILE.py', mode: 'single' }
+        ]
+      },
+      {
+        id: 'shopify_catalog',
+        title: 'Shopify Catalog',
+        desc: 'Shopify Products & Metafields',
+        icon: '🏪',
+        scripts: []
+      },
+      {
+        id: 'catalog_automation',
+        title: 'Catalog Automation',
+        desc: 'CSV/XML Feeds & Media',
+        icon: '⚙️',
+        scripts: []
+      }
+    ];
+
+    let modulesData = JSON.parse(localStorage.getItem('gempundit_modules')) || defaultModules;
+
+    function renderLevel1() {
+      const grid = document.getElementById('modulesGrid');
+      grid.innerHTML = '';
+
+      modulesData.forEach((mod, index) => {
+        const card = document.createElement('div');
+        card.className = 'module-card';
+
+        card.innerHTML = `
+          <div class="card-top">
+            <div class="card-icon-wrapper">${mod.icon}</div>
+            <span class="badge-count">${mod.scripts.length} Scripts</span>
+            <div class="card-actions admin-only">
+              <button class="icon-btn" onclick="editModuleTitle(${index}, event)">✏️</button>
+              <button class="icon-btn" onclick="deleteModule(${index}, event)">🗑️</button>
+            </div>
+          </div>
+          <h3 class="card-title">${mod.title}</h3>
+          <p class="card-desc">${mod.desc}</p>
+          <button class="open-btn" onclick="openModuleInner(${index})">Open Buttons &rsaquo;</button>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+
+    function openModuleInner(index) {
+      activeModuleIndex = index;
+      const mod = modulesData[index];
+
+      document.getElementById('currentModuleTitle').innerText = mod.title;
+      document.getElementById('currentModuleDesc').innerText = mod.desc;
+
+      document.getElementById('level1View').classList.add('hidden');
+      document.getElementById('level2View').classList.remove('hidden');
+
+      renderScripts();
+    }
+
+    function showLevel1() {
+      activeModuleIndex = null;
+      document.getElementById('level2View').classList.add('hidden');
+      document.getElementById('level1View').classList.remove('hidden');
+      renderLevel1();
+    }
+
+    function renderScripts() {
+      const grid = document.getElementById('scriptsGrid');
+      grid.innerHTML = '';
+
+      const mod = modulesData[activeModuleIndex];
+      if (!mod || !mod.scripts) return;
+
+      mod.scripts.forEach((script, sIndex) => {
+        const card = document.createElement('div');
+        card.className = 'script-card';
+
+        card.innerHTML = `
+          <div>
+            <div class="script-card-top">
+              <span class="script-type-tag">🖥️ Local Script</span>
+              <div class="card-actions admin-only">
+                <button class="icon-btn" onclick="openEditScriptModal(${sIndex})">✏️</button>
+                <button class="icon-btn" onclick="deleteScript(${sIndex})">🗑️</button>
+              </div>
+            </div>
+            <h3 class="script-name">${script.name}</h3>
+            <div class="path-black-box">${script.path}</div>
+          </div>
+          <button class="btn-execute" onclick="launchTask('${encodeURIComponent(script.path)}', '${script.name}', '${script.mode}')">
+            ▶ Execute Live Code
+          </button>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+
+    function saveData() {
+      localStorage.setItem('gempundit_modules', JSON.stringify(modulesData));
+    }
+
+    function toggleAdminMode() {
+      if (!isAdmin) {
+        const password = prompt("Enter Admin Password:");
+        if (password === "admin123") {
+          isAdmin = true;
+          document.body.classList.add('admin-mode');
+          document.getElementById('authBtn').innerText = "🔒 Logout Admin";
+        } else if (password !== null) {
+          alert("Incorrect Password!");
+        }
+      } else {
+        isAdmin = false;
+        document.body.classList.remove('admin-mode');
+        document.getElementById('authBtn').innerText = "🔒 Admin Login";
+      }
+    }
+
+    function addModule() {
+      const title = prompt("Enter Top Module Title:");
+      if (!title) return;
+      const desc = prompt("Enter Description:", "Automation Workflows") || "";
+      const icon = prompt("Enter Emoji Icon:", "🚀") || "🚀";
+
+      modulesData.push({
+        id: `mod_${Date.now()}`,
+        title,
+        desc,
+        icon,
+        scripts: []
+      });
+      saveData();
+      renderLevel1();
+    }
+
+    function editModuleTitle(index, event) {
+      event.stopPropagation();
+      const mod = modulesData[index];
+      const newTitle = prompt("Edit Module Title:", mod.title);
+      if (!newTitle) return;
+      mod.title = newTitle;
+      mod.desc = prompt("Edit Description:", mod.desc) || mod.desc;
+      saveData();
+      renderLevel1();
+    }
+
+    function deleteModule(index, event) {
+      event.stopPropagation();
+      if (confirm(`Delete top module "${modulesData[index].title}"?`)) {
+        modulesData.splice(index, 1);
+        saveData();
+        renderLevel1();
+      }
+    }
+
+    function resetDefault() {
+      if (confirm("Reset all modules & scripts to default state?")) {
+        localStorage.removeItem('gempundit_modules');
+        modulesData = JSON.parse(JSON.stringify(defaultModules));
+        saveData();
+        showLevel1();
+      }
+    }
+
+    function openAddScriptModal() {
+      editingScriptIndex = null;
+      document.getElementById('formModalTitle').innerText = "Add New Script";
+      document.getElementById('inputScriptName').value = "";
+      document.getElementById('inputScriptPath').value = "";
+      document.getElementById('inputScriptMode').value = "dual";
+      document.getElementById('scriptFormModal').classList.remove('hidden');
+    }
+
+    function openEditScriptModal(sIndex) {
+      editingScriptIndex = sIndex;
+      const script = modulesData[activeModuleIndex].scripts[sIndex];
+      document.getElementById('formModalTitle').innerText = "Edit Script";
+      document.getElementById('inputScriptName').value = script.name;
+      document.getElementById('inputScriptPath').value = script.path;
+      document.getElementById('inputScriptMode').value = script.mode || "dual";
+      document.getElementById('scriptFormModal').classList.remove('hidden');
+    }
+
+    function closeScriptModal() {
+      document.getElementById('scriptFormModal').classList.add('hidden');
+    }
+
+    function saveScriptFromModal() {
+      const name = document.getElementById('inputScriptName').value.trim();
+      const scriptPath = document.getElementById('inputScriptPath').value.trim();
+      const mode = document.getElementById('inputScriptMode').value;
+
+      if (!name || !scriptPath) {
+        alert("Please enter both Script Title and Python Path!");
+        return;
+      }
+
+      if (editingScriptIndex !== null) {
+        modulesData[activeModuleIndex].scripts[editingScriptIndex] = { name, path: scriptPath, mode };
+      } else {
+        modulesData[activeModuleIndex].scripts.push({ name, path: scriptPath, mode });
+      }
+
+      saveData();
+      renderScripts();
+      closeScriptModal();
+    }
+
+    function deleteScript(sIndex) {
+      if (confirm("Delete this script card?")) {
+        modulesData[activeModuleIndex].scripts.splice(sIndex, 1);
+        saveData();
+        renderScripts();
+      }
+    }
+
+    // MULTI-TASK ACTIVE DOCK ENGINE WITH ENCODED URL SAFE STREAM
+    function launchTask(encodedScriptPath, taskTitle, mode = 'single') {
+      const taskId = `task_${Date.now()}`;
+      const rawPath = decodeURIComponent(encodedScriptPath);
+      const isDualMode = mode === 'dual' || rawPath.toLowerCase().includes('run_both');
+
+      const task = {
+        id: taskId,
+        path: rawPath,
+        title: taskTitle,
+        mode: isDualMode ? 'dual' : 'single',
+        eventSource: null,
+        logs: { desktop: [], mobile: [], single: [] }
+      };
+
+      runningTasks[taskId] = task;
+
+      // URL Safe Stream Connection
+      task.eventSource = new EventSource(`/api/scripts/run-stream?path=${encodeURIComponent(rawPath)}&task_id=${taskId}`);
+
+      task.eventSource.onmessage = function(event) {
+        const logLine = event.data;
+        if (!logLine) return;
+
+        if (task.mode === 'single') {
+          const cleanLine = logLine.replace('[MOBILE]', '').replace('[DESKTOP]', '').trim();
+          task.logs.single.push({ text: cleanLine, color: '#a7f3d0' });
+        } else {
+          if (logLine.includes('[MOBILE]')) {
+            const cleanLine = logLine.replace('[MOBILE]', '').trim();
+            task.logs.mobile.push({ text: cleanLine, color: '#38bdf8' });
+          } else if (logLine.includes('[DESKTOP]')) {
+            const cleanLine = logLine.replace('[DESKTOP]', '').trim();
+            task.logs.desktop.push({ text: cleanLine, color: '#a7f3d0' });
+          } else {
+            task.logs.desktop.push({ text: logLine, color: '#fbbf24' });
+          }
+        }
+
+        if (activeTaskId === taskId) {
+          updateTerminalLogs(task);
+        }
+      };
+
+      task.eventSource.onerror = function() {
+        task.eventSource.close();
+        if (task.mode === 'single') {
+          task.logs.single.push({ text: '[Task Complete]', color: '#94a3b8' });
+        } else {
+          task.logs.desktop.push({ text: '[Task Complete]', color: '#94a3b8' });
+          task.logs.mobile.push({ text: '[Task Complete]', color: '#94a3b8' });
+        }
+        if (activeTaskId === taskId) updateTerminalLogs(task);
+        renderTaskDock();
+      };
+
+      maximizeTask(taskId);
+      renderTaskDock();
+    }
+
+    function maximizeTask(taskId) {
+      activeTaskId = taskId;
+      const task = runningTasks[taskId];
+
+      const modal = document.getElementById('terminalModal');
+      const terminalCard = document.getElementById('terminalCard');
+      const terminalBody = document.getElementById('terminalBody');
+      const title = document.getElementById('terminalTitle');
+
+      title.innerText = `Live Real-time Terminal: ${task.title}`;
+      terminalBody.innerHTML = '';
+      modal.classList.remove('hidden');
+
+      if (task.mode === 'dual') {
+        terminalCard.style.maxWidth = '1050px';
+        terminalBody.innerHTML = `
+          <div class="terminal-pane">
+            <div class="pane-header">🖥️ Desktop Terminal Stream</div>
+            <div id="desktopLogContainer" class="pane-content"></div>
+          </div>
+          <div class="terminal-pane">
+            <div class="pane-header">📱 Mobile Terminal Stream</div>
+            <div id="mobileLogContainer" class="pane-content"></div>
+          </div>
+        `;
+      } else {
+        terminalCard.style.maxWidth = '750px';
+        terminalBody.innerHTML = `
+          <div class="terminal-pane">
+            <div class="pane-header">🖥️ Console Output Stream</div>
+            <div id="singleLogContainer" class="pane-content"></div>
+          </div>
+        `;
+      }
+
+      updateTerminalLogs(task);
+      renderTaskDock();
+    }
+
+    function updateTerminalLogs(task) {
+      const desktopBox = document.getElementById('desktopLogContainer');
+      const mobileBox = document.getElementById('mobileLogContainer');
+      const singleBox = document.getElementById('singleLogContainer');
+
+      if (task.mode === 'single' && singleBox) {
+        singleBox.innerHTML = '';
+        task.logs.single.forEach(l => appendLogLine(singleBox, l.text, l.color));
+      } else if (task.mode === 'dual') {
+        if (desktopBox) {
+          desktopBox.innerHTML = '';
+          task.logs.desktop.forEach(l => appendLogLine(desktopBox, l.text, l.color));
+        }
+        if (mobileBox) {
+          mobileBox.innerHTML = '';
+          task.logs.mobile.forEach(l => appendLogLine(mobileBox, l.text, l.color));
+        }
+      }
+    }
+
+    function appendLogLine(container, text, color) {
+      const line = document.createElement('div');
+      line.style.color = color || '#a7f3d0';
+      line.textContent = text;
+      container.appendChild(line);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function minimizeCurrentTerminal() {
+      activeTaskId = null;
+      document.getElementById('terminalModal').classList.add('hidden');
+      renderTaskDock();
+    }
+
+    function closeActiveTerminal() {
+      if (activeTaskId && runningTasks[activeTaskId]) {
+        if (runningTasks[activeTaskId].eventSource) {
+          runningTasks[activeTaskId].eventSource.close();
+        }
+        delete runningTasks[activeTaskId];
+      }
+      activeTaskId = null;
+      document.getElementById('terminalModal').classList.add('hidden');
+      renderTaskDock();
+    }
+
+    function stopAndRemoveTask(taskId, event) {
+      event.stopPropagation();
+      if (runningTasks[taskId]) {
+        if (runningTasks[taskId].eventSource) {
+          runningTasks[taskId].eventSource.close();
+        }
+        delete runningTasks[taskId];
+      }
+      if (activeTaskId === taskId) {
+        activeTaskId = null;
+        document.getElementById('terminalModal').classList.add('hidden');
+      }
+      renderTaskDock();
+    }
+
+    function renderTaskDock() {
+      const dockBar = document.getElementById('taskDockBar');
+      const taskIds = Object.keys(runningTasks);
+
+      if (taskIds.length === 0) {
+        dockBar.classList.add('hidden');
+        return;
+      }
+
+      dockBar.classList.remove('hidden');
+      dockBar.innerHTML = '';
+
+      taskIds.forEach(id => {
+        const task = runningTasks[id];
+        const item = document.createElement('div');
+        item.className = `dock-item ${activeTaskId === id ? 'active' : ''}`;
+        item.onclick = () => maximizeTask(id);
+
+        item.innerHTML = `
+          <span class="status-dot"></span>
+          <span>${task.title}</span>
+          <button class="dock-close-btn" onclick="stopAndRemoveTask('${id}', event)">&times;</button>
+        `;
+
+        dockBar.appendChild(item);
+      });
+    }
+
+    renderLevel1();
+  </script>
+</body>
+</html>

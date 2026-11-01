@@ -1,0 +1,73 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Rank: Desktop",
+      "type": "shell",
+      "command": "${command:python.interpreterPath}",
+      "args": ["desktop_rank.py"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "rank",
+        "clear": true,
+        "focus": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Rank: Mobile",
+      "type": "shell",
+      "command": "${command:python.interpreterPath}",
+      "args": ["mobile_rank.py"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "RANK_START_DELAY": "10" }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "rank",
+        "clear": true,
+        "focus": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Rank: Combined Excel",
+      "type": "shell",
+      "command": "${command:python.interpreterPath}",
+      "args": ["run_both.py", "combine"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Rank: Desktop + Mobile (split terminals)",
+      "dependsOn": ["Rank: Desktop", "Rank: Mobile"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "Rank: ALL (split terminals + combined Excel)",
+      "type": "shell",
+      "command": "${command:python.interpreterPath}",
+      "args": ["run_both.py", "combine"],
+      "dependsOn": ["Rank: Desktop", "Rank: Mobile"],
+      "dependsOrder": "parallel",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": false
+      },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}
