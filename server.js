@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, './');
 
-// Windows Virtual Path Mapper for unmodified Python Scripts
+// Compatibility setup for local folder references
 if (process.platform !== 'win32') {
     const winPath = '/app/D:/Python code/New Rank Automation';
     try {
@@ -28,7 +28,7 @@ if (process.platform !== 'win32') {
             fs.copyFileSync(srcKeywords, destKeywords);
         }
     } catch (e) {
-        console.log("Path mapping notice:", e.message);
+        console.log("Path mapping note:", e.message);
     }
 }
 
@@ -36,43 +36,66 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(projectRoot, 'public')));
 
-// Run Automation Trigger API
+// Run Automation Route with Parallel Execution of Desktop & Mobile
 app.get('/api/run-automation', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
     const pythonExecutable = process.platform === 'win32' ? 'python' : 'python3';
     
-    console.log("🚀 Spawning Python Automation Process...");
-    
-    // Environment variables pass headless mode to Selenium
     const customEnv = {
         ...process.env,
         PYTHONUNBUFFERED: "1",
-        SELENIUM_HEADLESS: "true"
+        PYTHONIOENCODING: "utf-8",
+        CHROME_BIN: process.env.CHROME_BIN || "/usr/bin/chromium",
+        CHROMEDRIVER_PATH: process.env.CHROMEDRIVER_PATH || "/usr/bin/chromedriver"
     };
 
-    const pythonProcess = spawn(pythonExecutable, ['run_both.py'], {
-        cwd: projectRoot,
-        env: customEnv
-    });
+    res.write(`data: ${JSON.stringify({ log: "🚀 Initializing Desktop & Mobile Automation Tasks...\n" })}\n\n`);
 
-    pythonProcess.stdout.on('data', (data) => {
-        console.log(`[LOG]: ${data.toString()}`);
-    });
+    // Spawn Desktop Rank Tracker
+    const desktopProc = spawn(pythonExecutable, ['desktop_rank.py'], { cwd: projectRoot, env: customEnv });
+    
+    // Spawn Mobile Rank Tracker
+    const mobileProc = spawn(pythonExecutable, ['mobile_rank.py'], { cwd: projectRoot, env: customEnv });
 
-    pythonProcess.stderr.on('data', (data) => {
-        console.error(`[ERROR]: ${data.toString()}`);
-    });
+    let activeProcesses = 2;
 
-    pythonProcess.on('close', (code) => {
-        console.log(`Process finished with exit code ${code}`);
-        if (code === 0) {
-            res.json({ status: 'success', message: 'Automation finished successfully!' });
-        } else {
-            res.status(500).json({ status: 'error', message: 'Script execution failed' });
+    const handleData = (data, prefix) => {
+        const text = data.toString();
+        const lines = text.split('\n');
+        lines.forEach(line => {
+            if (line.trim()) {
+                res.write(`data: ${JSON.stringify({ log: `${prefix} ${line}` })}\n\n`);
+            }
+        });
+    };
+
+    // Handle Desktop Logs
+    desktopProc.stdout.on('data', (d) => handleData(d, '[DESKTOP]'));
+    desktopProc.stderr.on('data', (d) => handleData(d, '[DESKTOP ERROR]'));
+
+    // Handle Mobile Logs
+    mobileProc.stdout.on('data', (d) => handleData(d, '[MOBILE]'));
+    mobileProc.stderr.on('data', (d) => handleData(d, '[MOBILE ERROR]'));
+
+    const checkDone = (code, scriptName) => {
+        res.write(`data: ${JSON.stringify({ log: `\n[${scriptName} Finished] Exit Code: ${code}\n` })}\n\n`);
+        activeProcesses--;
+        if (activeProcesses === 0) {
+            res.write(`data: ${JSON.stringify({ log: `\n[Task Complete] All ranking processes completed.\n` })}\n\n`);
+            res.end();
         }
-    });
+    };
+
+    desktopProc.on('close', (code) => checkDone(code, 'DESKTOP'));
+    mobileProc.on('close', (code) => checkDone(code, 'MOBILE'));
+
+    desktopProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[DESKTOP]'));
+    mobileProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[MOBILE]'));
 });
 
-// Download Endpoint
 app.get('/download-report', (req, res) => {
     const candidatePaths = [
         path.join(projectRoot, 'google_rank_combined.xlsx'),
@@ -85,7 +108,7 @@ app.get('/download-report', (req, res) => {
     if (targetFile) {
         res.download(targetFile, 'google_rank_combined.xlsx');
     } else {
-        res.status(404).json({ error: 'Report file generate nahi hui.' });
+        res.status(404).json({ error: 'Report file not found.' });
     }
 });
 
