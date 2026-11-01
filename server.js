@@ -9,7 +9,6 @@ import fs from 'fs';
 dotenv.config();
 
 const app = express();
-// Priority to Render PORT environment variable
 const PORT = process.env.PORT || 10000;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -55,8 +54,10 @@ app.get('/api/run-automation', (req, res) => {
 
     res.write(`data: ${JSON.stringify({ log: "🚀 Initializing Desktop & Mobile Automation Tasks...\n" })}\n\n`);
 
-    // Direct Parallel Spawning of Desktop and Mobile Trackers
+    // Spawn Desktop Rank Tracker
     const desktopProc = spawn(pythonExecutable, ['desktop_rank.py'], { cwd: projectRoot, env: customEnv });
+    
+    // Spawn Mobile Rank Tracker
     const mobileProc = spawn(pythonExecutable, ['mobile_rank.py'], { cwd: projectRoot, env: customEnv });
 
     let activeProcesses = 2;
@@ -66,21 +67,24 @@ app.get('/api/run-automation', (req, res) => {
         const lines = text.split('\n');
         lines.forEach(line => {
             if (line.trim()) {
+                console.log(`${prefix} ${line}`);
                 res.write(`data: ${JSON.stringify({ log: `${prefix} ${line}` })}\n\n`);
             }
         });
     };
 
-    // Stream logs for Desktop process
+    // Handle Desktop Logs
     desktopProc.stdout.on('data', (d) => handleData(d, '[DESKTOP]'));
     desktopProc.stderr.on('data', (d) => handleData(d, '[DESKTOP ERROR]'));
 
-    // Stream logs for Mobile process
+    // Handle Mobile Logs
     mobileProc.stdout.on('data', (d) => handleData(d, '[MOBILE]'));
     mobileProc.stderr.on('data', (d) => handleData(d, '[MOBILE ERROR]'));
 
     const checkDone = (code, scriptName) => {
-        res.write(`data: ${JSON.stringify({ log: `\n[${scriptName} Finished] Exit Code: ${code}\n` })}\n\n`);
+        const finishMsg = `\n[${scriptName} Finished] Exit Code: ${code}\n`;
+        console.log(finishMsg);
+        res.write(`data: ${JSON.stringify({ log: finishMsg })}\n\n`);
         activeProcesses--;
         if (activeProcesses === 0) {
             res.write(`data: ${JSON.stringify({ log: `\n[Task Complete] All ranking processes completed.\n` })}\n\n`);
@@ -91,8 +95,8 @@ app.get('/api/run-automation', (req, res) => {
     desktopProc.on('close', (code) => checkDone(code, 'DESKTOP'));
     mobileProc.on('close', (code) => checkDone(code, 'MOBILE'));
 
-    desktopProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[DESKTOP]'));
-    mobileProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[MOBILE]'));
+    desktopProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[DESKTOP ERROR]'));
+    mobileProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[MOBILE ERROR]'));
 });
 
 app.get('/download-report', (req, res) => {
