@@ -15,11 +15,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, './');
 
+// Compatibility setup for local folder references & keywords placement
+if (process.platform !== 'win32') {
+    const winPath = '/app/D:/Python code/New Rank Automation';
+    try {
+        if (!fs.existsSync(winPath)) {
+            fs.mkdirSync(winPath, { recursive: true });
+        }
+        const srcKeywords = path.join(projectRoot, 'keywords.txt');
+        const destKeywords = path.join(winPath, 'keywords.txt');
+        if (fs.existsSync(srcKeywords) && !fs.existsSync(destKeywords)) {
+            fs.copyFileSync(srcKeywords, destKeywords);
+        }
+    } catch (e) {
+        console.log("Path mapping note:", e.message);
+    }
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(projectRoot, 'public')));
 
-// Run Automation Route: Triggering run_both.py together
+// Run Automation Route: Explicitly passing 'together' flag to run_both.py
 app.get('/api/run-automation', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -35,9 +52,9 @@ app.get('/api/run-automation', (req, res) => {
         CHROMEDRIVER_PATH: process.env.CHROMEDRIVER_PATH || "/usr/bin/chromedriver"
     };
 
-    res.write(`data: ${JSON.stringify({ log: "[DESKTOP] 🚀 Spawning run_both.py script...\n[MOBILE] 🚀 Spawning run_both.py script...\n" })}\n\n`);
+    res.write(`data: ${JSON.stringify({ log: "[DESKTOP] 🚀 Initializing Live Rank Tracker Automation...\n[MOBILE] 🚀 Initializing Live Rank Tracker Automation...\n" })}\n\n`);
 
-    // Spawning run_both.py directly just like VS Code
+    // Passing 'together' argument so run_both.py actually executes the tracker scripts
     const pyProc = spawn(pythonExecutable, ['run_both.py', 'together'], { cwd: projectRoot, env: customEnv });
 
     const handleData = (data) => {
@@ -46,11 +63,11 @@ app.get('/api/run-automation', (req, res) => {
         lines.forEach(line => {
             if (line.trim()) {
                 console.log(line);
-                // Smart Routing for split terminals in index.html
-                if (line.includes('MOBILE') || line.includes('Mobile')) {
-                    res.write(`data: ${JSON.stringify({ log: `[MOBILE] ${line}` })}\n\n`);
+                // Smart Routing logs to Desktop vs Mobile terminals in HTML
+                if (line.includes('[MOBILE]') || line.includes('mobile') || line.includes('Mobile')) {
+                    res.write(`data: ${JSON.stringify({ log: `${line.includes('[MOBILE]') ? '' : '[MOBILE] '}${line}` })}\n\n`);
                 } else {
-                    res.write(`data: ${JSON.stringify({ log: `[DESKTOP] ${line}` })}\n\n`);
+                    res.write(`data: ${JSON.stringify({ log: `${line.includes('[DESKTOP]') ? '' : '[DESKTOP] '}${line}` })}\n\n`);
                 }
             }
         });
