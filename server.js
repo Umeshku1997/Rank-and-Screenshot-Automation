@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, './');
 
-// Compatibility setup for local folder references
+// Compatibility setup for local folder references & keywords placement
 if (process.platform !== 'win32') {
     const winPath = '/app/D:/Python code/New Rank Automation';
     try {
@@ -54,10 +54,8 @@ app.get('/api/run-automation', (req, res) => {
 
     res.write(`data: ${JSON.stringify({ log: "🚀 Initializing Desktop & Mobile Automation Tasks...\n" })}\n\n`);
 
-    // Spawn Desktop Rank Tracker
+    // Direct Parallel Spawning of Desktop and Mobile Trackers
     const desktopProc = spawn(pythonExecutable, ['desktop_rank.py'], { cwd: projectRoot, env: customEnv });
-    
-    // Spawn Mobile Rank Tracker
     const mobileProc = spawn(pythonExecutable, ['mobile_rank.py'], { cwd: projectRoot, env: customEnv });
 
     let activeProcesses = 2;
@@ -73,11 +71,10 @@ app.get('/api/run-automation', (req, res) => {
         });
     };
 
-    // Handle Desktop Logs
+    // Capture standard logs AND errors explicitly to frontend stream
     desktopProc.stdout.on('data', (d) => handleData(d, '[DESKTOP]'));
     desktopProc.stderr.on('data', (d) => handleData(d, '[DESKTOP ERROR]'));
 
-    // Handle Mobile Logs
     mobileProc.stdout.on('data', (d) => handleData(d, '[MOBILE]'));
     mobileProc.stderr.on('data', (d) => handleData(d, '[MOBILE ERROR]'));
 
