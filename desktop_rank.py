@@ -17,6 +17,7 @@ import pandas as pd
 
 from urllib.parse import urlparse, parse_qs, unquote, quote_plus
 
+from selenium.webdriver.chrome.service import Service
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -1888,6 +1889,11 @@ def search_keyword(driver, keyword):
 # ============================================================
 # CREATE DRIVER
 # ============================================================
+def make_service():
+    path = os.environ.get("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+    if sys.platform != "win32" and os.path.exists(path):
+        return Service(path)
+    return Service()
 
 def create_driver():
 
