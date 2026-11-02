@@ -1128,46 +1128,55 @@
     }
 
     renderLevel1();
-// Ye existing UI layout ko change nahi karega, sirf terminal stream ko readable banayega
-function runAutomationStream(endpoint, desktopTerminalId, mobileTerminalId) {
-    const desktopTerm = document.getElementById(desktopTerminalId);
-    const mobileTerm = document.getElementById(mobileTerminalId);
+// Universal Stream Handler for Terminals
+    window.runAutomationStream = function(endpoint, desktopId = 'desktopTerminal', mobileId = 'mobileTerminal') {
+        const desktopTerm = document.getElementById(desktopId);
+        const mobileTerm = document.getElementById(mobileId);
 
-    if (desktopTerm) desktopTerm.textContent = "Connecting Desktop...\n";
-    if (mobileTerm) mobileTerm.textContent = "Connecting Mobile...\n";
+        if (desktopTerm) desktopTerm.textContent = "[System] Connecting to Desktop Stream...\n";
+        if (mobileTerm) mobileTerm.textContent = "[System] Connecting to Mobile Stream...\n";
 
-    // EventSource call to backend
-    const eventSource = new EventSource(endpoint);
+        const eventSource = new EventSource(endpoint);
 
-    eventSource.onmessage = function (event) {
-        // Log message receive karke terminal par Append karna
-        if (!event.data) return;
+        eventSource.onmessage = function (event) {
+            if (!event.data) return;
 
-        let logText = event.data;
-        try {
-            const parsed = JSON.parse(event.data);
-            logText = parsed.message || parsed.text || event.data;
-        } catch (e) {
-            logText = event.data;
-        }
+            let logText = event.data;
+            try {
+                const parsed = JSON.parse(event.data);
+                logText = parsed.message || parsed.text || event.data;
+            } catch (e) {
+                logText = event.data;
+            }
 
-        // Desktop terminal me append
-        if (desktopTerm) {
-            desktopTerm.textContent += logText + "\n";
-            desktopTerm.scrollTop = desktopTerm.scrollHeight;
-        }
-        // Mobile terminal me append
-        if (mobileTerm) {
-            mobileTerm.textContent += logText + "\n";
-            mobileTerm.scrollTop = mobileTerm.scrollHeight;
-        }
-    };
+            // Route logs to Desktop / Mobile terminals cleanly
+            if (logText.includes('[MOBILE]')) {
+                if (mobileTerm) {
+                    mobileTerm.textContent += logText + "\n";
+                    mobileTerm.scrollTop = mobileTerm.scrollHeight;
+                }
+            } else if (logText.includes('[DESKTOP]')) {
+                if (desktopTerm) {
+                    desktopTerm.textContent += logText + "\n";
+                    desktopTerm.scrollTop = desktopTerm.scrollHeight;
+                }
+            } else {
+                // General system logs go to both
+                if (desktopTerm) {
+                    desktopTerm.textContent += logText + "\n";
+                    desktopTerm.scrollTop = desktopTerm.scrollHeight;
+                }
+                if (mobileTerm) {
+                    mobileTerm.textContent += logText + "\n";
+                    mobileTerm.scrollTop = mobileTerm.scrollHeight;
+                }
+            }
+        };
 
-    eventSource.onerror = function (err) {
-        console.error("SSE Error:", err);
-        eventSource.close();
-    };
-}    
-  </script>
+        eventSource.onerror = function (err) {
+            console.error("SSE Connection Closed/Error:", err);
+            eventSource.close();
+        };
+    };  </script>
 </body>
 </html>
