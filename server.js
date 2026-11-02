@@ -13,65 +13,50 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- AUTOMATIC WINDOWS PATH MAPPING FOR PYTHON SCRIPTS ---
-function setupWindowsPathAlias() {
+// Dynamic Windows Path mapping so Python script gets keywords.txt
+function ensureKeywordsPath() {
     try {
-        const virtualDirPath = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
-        if (!fs.existsSync(virtualDirPath)) {
-            fs.mkdirSync(virtualDirPath, { recursive: true });
+        const virtualDir = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
+        if (!fs.existsSync(virtualDir)) {
+            fs.mkdirSync(virtualDir, { recursive: true });
         }
+        const sourceFile = path.join(__dirname, 'keywords.txt');
+        const targetFile = path.join(virtualDir, 'keywords.txt');
 
-        const sourceKeywords = path.join(__dirname, 'keywords.txt');
-        const targetKeywords = path.join(virtualDirPath, 'keywords.txt');
-
-        if (fs.existsSync(sourceKeywords)) {
-            fs.copyFileSync(sourceKeywords, targetKeywords);
-            console.log('✅ Synchronized GitHub keywords.txt to Windows virtual path');
-        } else {
-            console.log('⚠️ Warning: keywords.txt missing in GitHub root repository!');
+        if (fs.existsSync(sourceFile)) {
+            fs.copyFileSync(sourceFile, targetFile);
         }
-    } catch (err) {
-        console.error('Path alias creation error:', err.message);
+    } catch (e) {
+        console.error("Path Mapping Error:", e.message);
     }
 }
 
-// Run path sync on boot
-setupWindowsPathAlias();
-
-function setSSEHeaders(res) {
+function runStreamProcess(req, res, targetScript, modeArg) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     if (res.flushHeaders) res.flushHeaders();
-}
 
-function executeProcess(req, res, targetScript, defaultMode) {
-    setSSEHeaders(res);
-    setupWindowsPathAlias(); // Re-sync before every run
+    ensureKeywordsPath();
 
-    const scriptFile = targetScript || req.query.path || req.query.script || req.query.file || 'run_both.py';
+    const scriptFile = targetScript || req.query.path || req.query.script || 'run_both.py';
     const scriptPath = path.join(__dirname, scriptFile);
 
-    const sendMsg = (text) => {
-        res.write(`data: ${text}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: text })}\n\n`);
-    };
-
-    sendMsg(`[System] Initializing execution for ${scriptFile}...`);
+    res.write(`data: [System] Starting script execution: ${scriptFile}...\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
-        sendMsg(`[Error] Script '${scriptFile}' not found in container root.`);
-        sendMsg(`[Task Complete]`);
+        res.write(`data: [Error] File missing in container: ${scriptFile}\n\n`);
+        res.write(`data: [Task Complete]\n\n`);
         return res.end();
     }
 
-    const args = ['-u', scriptPath];
+    const scriptArgs = ['-u', scriptPath];
     if (scriptFile === 'run_both.py') {
-        args.push(defaultMode || req.query.mode || 'together');
+        scriptArgs.push(modeArg || req.query.mode || 'together');
     }
 
-    const child = spawn('python3', args, {
+    const child = spawn('python3', scriptArgs, {
         cwd: __dirname,
         env: {
             ...process.env,
@@ -81,20 +66,26 @@ function executeProcess(req, res, targetScript, defaultMode) {
     });
 
     child.stdout.on('data', (data) => {
-        sendMsg(data.toString());
+        const lines = data.toString().split('\n');
+        lines.forEach(line => {
+            if (line.trim()) res.write(`data: ${line}\n\n`);
+        });
     });
 
     child.stderr.on('data', (data) => {
-        sendMsg(`[LOG] ${data.toString()}`);
+        const lines = data.toString().split('\n');
+        lines.forEach(line => {
+            if (line.trim()) res.write(`data: [LOG] ${line}\n\n`);
+        });
     });
 
     child.on('close', (code) => {
-        sendMsg(`[Task Complete] Exit code: ${code}`);
+        res.write(`data: [Task Complete] Exit code: ${code}\n\n`);
         res.end();
     });
 
     child.on('error', (err) => {
-        sendMsg(`[EXEC ERROR] ${err.message}`);
+        res.write(`data: [EXEC ERROR] ${err.message}\n\n`);
         res.end();
     });
 
@@ -103,14 +94,13 @@ function executeProcess(req, res, targetScript, defaultMode) {
     });
 }
 
-// Stream Routing Endpoints
-app.get('/run-stream', (req, res) => executeProcess(req, res));
-app.get('/api/stream', (req, res) => executeProcess(req, res));
-app.get('/api/stream/together', (req, res) => executeProcess(req, res, 'run_both.py', 'together'));
-app.get('/api/stream/desktop', (req, res) => executeProcess(req, res, 'desktop_rank.py'));
-app.get('/api/stream/mobile', (req, res) => executeProcess(req, res, 'mobile_rank.py'));
+// Endpoints
+app.get('/run-stream', (req, res) => runStreamProcess(req, res));
+app.get('/api/stream', (req, res) => runStreamProcess(req, res));
+app.get('/api/stream/together', (req, res) => runStreamProcess(req, res, 'run_both.py', 'together'));
+app.get('/api/stream/desktop', (req, res) => runStreamProcess(req, res, 'desktop_rank.py'));
+app.get('/api/stream/mobile', (req, res) => runStreamProcess(req, res, 'mobile_rank.py'));
 
-// Public Assets
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/', (req, res) => {
@@ -118,10 +108,8 @@ app.get('/', (req, res) => {
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('Dashboard Index Missing');
+        res.status(404).send('UI Index Missing');
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
