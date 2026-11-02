@@ -21,24 +21,23 @@ function setSSEHeaders(res) {
     if (res.flushHeaders) res.flushHeaders();
 }
 
-function executeScript(req, res, forceScript) {
+function runPythonProcess(req, res, targetScript, modeArg) {
     setSSEHeaders(res);
 
-    const scriptName = forceScript || req.query.path || req.query.script || req.query.file || 'run_both.py';
-    const scriptPath = path.join(__dirname, scriptName);
+    const scriptFile = targetScript || req.query.path || req.query.script || req.query.file || 'run_both.py';
+    const scriptPath = path.join(__dirname, scriptFile);
 
-    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Initializing ${scriptName}...\n` })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Executing ${scriptFile}...\n` })}\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] Script file '${scriptName}' not found!\n` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] File standard missing: ${scriptFile}\n` })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: 'end', message: '[Task Complete]' })}\n\n`);
         return res.end();
     }
 
-    // Always pass 'together' argument when executing run_both.py
     const scriptArgs = ['-u', scriptPath];
-    if (scriptName === 'run_both.py') {
-        scriptArgs.push('together');
+    if (scriptFile === 'run_both.py') {
+        scriptArgs.push(modeArg || req.query.mode || 'together');
     }
 
     const child = spawn('python3', scriptArgs, {
@@ -51,13 +50,21 @@ function executeScript(req, res, forceScript) {
     });
 
     child.stdout.on('data', (data) => {
-        const text = data.toString();
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: text })}\n\n`);
+        const lines = data.toString().split('\n');
+        lines.forEach(line => {
+            if (line.trim()) {
+                res.write(`data: ${JSON.stringify({ type: 'stdout', message: `${line}\n` })}\n\n`);
+            }
+        });
     });
 
     child.stderr.on('data', (data) => {
-        const text = data.toString();
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${text}` })}\n\n`);
+        const lines = data.toString().split('\n');
+        lines.forEach(line => {
+            if (line.trim()) {
+                res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${line}\n` })}\n\n`);
+            }
+        });
     });
 
     child.on('close', (code) => {
@@ -66,7 +73,7 @@ function executeScript(req, res, forceScript) {
     });
 
     child.on('error', (err) => {
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[EXEC ERROR] ${err.message}\n` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[EXEC ERROR] ${err.message}\n` })}\n\n`);
         res.end();
     });
 
@@ -75,11 +82,14 @@ function executeScript(req, res, forceScript) {
     });
 }
 
-// Stream Endpoints
-app.get('/run-stream', (req, res) => executeScript(req, res));
-app.get('/api/stream', (req, res) => executeScript(req, res));
+// 1. All Endpoints map to process runner cleanly
+app.get('/run-stream', (req, res) => runPythonProcess(req, res));
+app.get('/api/stream', (req, res) => runPythonProcess(req, res));
+app.get('/api/stream/together', (req, res) => runPythonProcess(req, res, 'run_both.py', 'together'));
+app.get('/api/stream/desktop', (req, res) => runPythonProcess(req, res, 'desktop_rank.py'));
+app.get('/api/stream/mobile', (req, res) => runPythonProcess(req, res, 'mobile_rank.py'));
 
-// Serve UI Static Assets
+// 2. Serve public static assets
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/', (req, res) => {
@@ -87,7 +97,7 @@ app.get('/', (req, res) => {
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('Dashboard UI HTML missing');
+        res.status(404).send('Dashboard UI Index Missing');
     }
 });
 
