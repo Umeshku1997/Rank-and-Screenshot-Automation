@@ -1128,6 +1128,36 @@
     }
 
     renderLevel1();
+// Ye existing UI layout ko change nahi karega, sirf terminal stream ko readable banayega
+function startStream(url, terminalElementId) {
+    const terminal = document.getElementById(terminalElementId);
+    if (!terminal) return;
+    
+    terminal.innerHTML = ""; // Screen clear karein
+
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = function (event) {
+        let textToShow = "";
+        try {
+            const data = JSON.parse(event.data);
+            textToShow = data.message || data.text || JSON.stringify(data);
+        } catch (e) {
+            textToShow = event.data;
+        }
+
+        if (textToShow) {
+            terminal.innerHTML += textToShow + "\n";
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+    };
+
+    eventSource.onerror = function () {
+        terminal.innerHTML += "\n[Stream Closed/Connection Error]\n";
+        eventSource.close();
+    };
+}
+    
   </script>
 </body>
 </html>
