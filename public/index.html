@@ -1133,27 +1133,18 @@ function startStream(url, terminalElementId) {
     const terminal = document.getElementById(terminalElementId);
     if (!terminal) return;
     
-    terminal.innerHTML = ""; // Screen clear karein
+    terminal.innerHTML = "";
 
     const eventSource = new EventSource(url);
 
     eventSource.onmessage = function (event) {
-        let textToShow = "";
-        try {
-            const data = JSON.parse(event.data);
-            textToShow = data.message || data.text || JSON.stringify(data);
-        } catch (e) {
-            textToShow = event.data;
-        }
-
-        if (textToShow) {
-            terminal.innerHTML += textToShow + "\n";
+        if (event.data) {
+            terminal.innerHTML += event.data + "\n";
             terminal.scrollTop = terminal.scrollHeight;
         }
     };
 
     eventSource.onerror = function () {
-        terminal.innerHTML += "\n[Stream Closed/Connection Error]\n";
         eventSource.close();
     };
 }
