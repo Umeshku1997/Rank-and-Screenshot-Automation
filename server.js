@@ -13,33 +13,28 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Dynamic Windows Absolute Path Mapper for Linux Container
-function setupWindowsVirtualPath() {
-    try {
-        const rootKeywords = path.join(__dirname, 'keywords.txt');
-        
-        // Exact Windows Path structure Python is looking for
-        const targetDir = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
-        const targetKeywords = path.join(targetDir, 'keywords.txt');
+// Ensure keywords file is copied everywhere Python might check
+function syncKeywordsFile() {
+    const rootKeywords = path.join(__dirname, 'keywords.txt');
+    if (!fs.existsSync(rootKeywords)) return;
 
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-        }
+    const targetPaths = [
+        path.join('/D:', 'Python code', 'New Rank Automation', 'keywords.txt'),
+        path.join(__dirname, 'D:', 'Python code', 'New Rank Automation', 'keywords.txt')
+    ];
 
-        if (fs.existsSync(rootKeywords)) {
-            // Copy file directly to Windows virtual directory
-            fs.copyFileSync(rootKeywords, targetKeywords);
-            console.log(`✅ [PATH SYNC SUCCESS] Copied keywords.txt to: ${targetKeywords}`);
-        } else {
-            console.warn("⚠️ [PATH WARN] keywords.txt missing in root folder!");
+    targetPaths.forEach(targetFile => {
+        try {
+            const dir = path.dirname(targetFile);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.copyFileSync(rootKeywords, targetFile);
+        } catch (e) {
+            // ignore OS system dir warnings
         }
-    } catch (err) {
-        console.error("❌ [PATH ERROR] Failure mapping path:", err.message);
-    }
+    });
 }
 
-// Initial Sync on server startup
-setupWindowsVirtualPath();
+syncKeywordsFile();
 
 function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -49,16 +44,14 @@ function setSSEHeaders(res) {
     if (res.flushHeaders) res.flushHeaders();
 }
 
-function handleScriptExecution(req, res, forceScript) {
+function runScript(req, res, forceScript) {
     setSSEHeaders(res);
-    
-    // Always re-sync file path right before running python
-    setupWindowsVirtualPath();
+    syncKeywordsFile();
 
     const scriptFile = forceScript || req.query.path || req.query.script || 'run_both.py';
     const scriptPath = path.join(__dirname, scriptFile);
 
-    res.write(`data: [System] Starting live automation for ${scriptFile}...\n\n`);
+    res.write(`data: [System] Starting live script execution: ${scriptFile}...\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
         res.write(`data: [Error] File missing: ${scriptFile}\n\n`);
@@ -109,12 +102,11 @@ function handleScriptExecution(req, res, forceScript) {
     });
 }
 
-// EventSource Routes
-app.get('/run-stream', (req, res) => handleScriptExecution(req, res));
-app.get('/api/stream', (req, res) => handleScriptExecution(req, res));
-app.get('/api/stream/together', (req, res) => handleScriptExecution(req, res, 'run_both.py'));
-app.get('/api/stream/desktop', (req, res) => handleScriptExecution(req, res, 'desktop_rank.py'));
-app.get('/api/stream/mobile', (req, res) => handleScriptExecution(req, res, 'mobile_rank.py'));
+app.get('/run-stream', (req, res) => runScript(req, res));
+app.get('/api/stream', (req, res) => runScript(req, res));
+app.get('/api/stream/together', (req, res) => runScript(req, res, 'run_both.py'));
+app.get('/api/stream/desktop', (req, res) => runScript(req, res, 'desktop_rank.py'));
+app.get('/api/stream/mobile', (req, res) => runScript(req, res, 'mobile_rank.py'));
 
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
@@ -123,8 +115,8 @@ app.get('/', (req, res) => {
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('Dashboard UI Index Missing');
+        res.status(404).send('UI Index Missing');
     }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server active on port ${PORT}`));
