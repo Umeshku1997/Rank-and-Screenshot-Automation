@@ -13,18 +13,30 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Ensure keywords.txt directory exists for Windows path fallbacks
-const windowsDirPath = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
-if (!fs.existsSync(windowsDirPath)) {
-    fs.mkdirSync(windowsDirPath, { recursive: true });
+// --- AUTOMATIC WINDOWS PATH MAPPING FOR PYTHON SCRIPTS ---
+function setupWindowsPathAlias() {
+    try {
+        const virtualDirPath = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
+        if (!fs.existsSync(virtualDirPath)) {
+            fs.mkdirSync(virtualDirPath, { recursive: true });
+        }
+
+        const sourceKeywords = path.join(__dirname, 'keywords.txt');
+        const targetKeywords = path.join(virtualDirPath, 'keywords.txt');
+
+        if (fs.existsSync(sourceKeywords)) {
+            fs.copyFileSync(sourceKeywords, targetKeywords);
+            console.log('✅ Synchronized GitHub keywords.txt to Windows virtual path');
+        } else {
+            console.log('⚠️ Warning: keywords.txt missing in GitHub root repository!');
+        }
+    } catch (err) {
+        console.error('Path alias creation error:', err.message);
+    }
 }
 
-// Copy local keywords.txt to Windows path fallback if present in root
-const rootKeywords = path.join(__dirname, 'keywords.txt');
-const fallbackKeywords = path.join(windowsDirPath, 'keywords.txt');
-if (fs.existsSync(rootKeywords) && !fs.existsSync(fallbackKeywords)) {
-    fs.copyFileSync(rootKeywords, fallbackKeywords);
-}
+// Run path sync on boot
+setupWindowsPathAlias();
 
 function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -34,31 +46,32 @@ function setSSEHeaders(res) {
     if (res.flushHeaders) res.flushHeaders();
 }
 
-function runPythonProcess(req, res, targetScript, modeArg) {
+function executeProcess(req, res, targetScript, defaultMode) {
     setSSEHeaders(res);
+    setupWindowsPathAlias(); // Re-sync before every run
 
     const scriptFile = targetScript || req.query.path || req.query.script || req.query.file || 'run_both.py';
     const scriptPath = path.join(__dirname, scriptFile);
 
-    // Initial log line
-    const initMsg = `[System] Executing ${scriptFile}...\n`;
-    res.write(`data: ${initMsg}\n\n`);
-    res.write(`data: ${JSON.stringify({ type: 'stdout', message: initMsg })}\n\n`);
+    const sendMsg = (text) => {
+        res.write(`data: ${text}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: text })}\n\n`);
+    };
+
+    sendMsg(`[System] Initializing execution for ${scriptFile}...`);
 
     if (!fs.existsSync(scriptPath)) {
-        const errorMsg = `[Error] File missing: ${scriptFile}\n`;
-        res.write(`data: ${errorMsg}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: errorMsg })}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'end', message: '[Task Complete]' })}\n\n`);
+        sendMsg(`[Error] Script '${scriptFile}' not found in container root.`);
+        sendMsg(`[Task Complete]`);
         return res.end();
     }
 
-    const scriptArgs = ['-u', scriptPath];
+    const args = ['-u', scriptPath];
     if (scriptFile === 'run_both.py') {
-        scriptArgs.push(modeArg || req.query.mode || 'together');
+        args.push(defaultMode || req.query.mode || 'together');
     }
 
-    const child = spawn('python3', scriptArgs, {
+    const child = spawn('python3', args, {
         cwd: __dirname,
         env: {
             ...process.env,
@@ -68,29 +81,20 @@ function runPythonProcess(req, res, targetScript, modeArg) {
     });
 
     child.stdout.on('data', (data) => {
-        const rawText = data.toString();
-        // Send both plain string and structured JSON for maximum frontend UI compatibility
-        res.write(`data: ${rawText}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: rawText })}\n\n`);
+        sendMsg(data.toString());
     });
 
     child.stderr.on('data', (data) => {
-        const rawText = data.toString();
-        res.write(`data: ${rawText}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${rawText}` })}\n\n`);
+        sendMsg(`[LOG] ${data.toString()}`);
     });
 
     child.on('close', (code) => {
-        const endMsg = `[Task Complete] Exit code: ${code}`;
-        res.write(`data: ${endMsg}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'end', message: endMsg })}\n\n`);
+        sendMsg(`[Task Complete] Exit code: ${code}`);
         res.end();
     });
 
     child.on('error', (err) => {
-        const errStr = `[EXEC ERROR] ${err.message}\n`;
-        res.write(`data: ${errStr}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: errStr })}\n\n`);
+        sendMsg(`[EXEC ERROR] ${err.message}`);
         res.end();
     });
 
@@ -99,14 +103,14 @@ function runPythonProcess(req, res, targetScript, modeArg) {
     });
 }
 
-// EventSource endpoints mapping
-app.get('/run-stream', (req, res) => runPythonProcess(req, res));
-app.get('/api/stream', (req, res) => runPythonProcess(req, res));
-app.get('/api/stream/together', (req, res) => runPythonProcess(req, res, 'run_both.py', 'together'));
-app.get('/api/stream/desktop', (req, res) => runPythonProcess(req, res, 'desktop_rank.py'));
-app.get('/api/stream/mobile', (req, res) => runPythonProcess(req, res, 'mobile_rank.py'));
+// Stream Routing Endpoints
+app.get('/run-stream', (req, res) => executeProcess(req, res));
+app.get('/api/stream', (req, res) => executeProcess(req, res));
+app.get('/api/stream/together', (req, res) => executeProcess(req, res, 'run_both.py', 'together'));
+app.get('/api/stream/desktop', (req, res) => executeProcess(req, res, 'desktop_rank.py'));
+app.get('/api/stream/mobile', (req, res) => executeProcess(req, res, 'mobile_rank.py'));
 
-// Serve UI Static Assets
+// Public Assets
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/', (req, res) => {
@@ -114,7 +118,7 @@ app.get('/', (req, res) => {
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('Dashboard UI Index Missing');
+        res.status(404).send('Dashboard Index Missing');
     }
 });
 
