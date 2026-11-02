@@ -1129,26 +1129,45 @@
 
     renderLevel1();
 // Ye existing UI layout ko change nahi karega, sirf terminal stream ko readable banayega
-function startStream(url, terminalElementId) {
-    const terminal = document.getElementById(terminalElementId);
-    if (!terminal) return;
-    
-    terminal.innerHTML = "";
+function runAutomationStream(endpoint, desktopTerminalId, mobileTerminalId) {
+    const desktopTerm = document.getElementById(desktopTerminalId);
+    const mobileTerm = document.getElementById(mobileTerminalId);
 
-    const eventSource = new EventSource(url);
+    if (desktopTerm) desktopTerm.textContent = "Connecting Desktop...\n";
+    if (mobileTerm) mobileTerm.textContent = "Connecting Mobile...\n";
+
+    // EventSource call to backend
+    const eventSource = new EventSource(endpoint);
 
     eventSource.onmessage = function (event) {
-        if (event.data) {
-            terminal.innerHTML += event.data + "\n";
-            terminal.scrollTop = terminal.scrollHeight;
+        // Log message receive karke terminal par Append karna
+        if (!event.data) return;
+
+        let logText = event.data;
+        try {
+            const parsed = JSON.parse(event.data);
+            logText = parsed.message || parsed.text || event.data;
+        } catch (e) {
+            logText = event.data;
+        }
+
+        // Desktop terminal me append
+        if (desktopTerm) {
+            desktopTerm.textContent += logText + "\n";
+            desktopTerm.scrollTop = desktopTerm.scrollHeight;
+        }
+        // Mobile terminal me append
+        if (mobileTerm) {
+            mobileTerm.textContent += logText + "\n";
+            mobileTerm.scrollTop = mobileTerm.scrollHeight;
         }
     };
 
-    eventSource.onerror = function () {
+    eventSource.onerror = function (err) {
+        console.error("SSE Error:", err);
         eventSource.close();
     };
-}
-    
+}    
   </script>
 </body>
 </html>
