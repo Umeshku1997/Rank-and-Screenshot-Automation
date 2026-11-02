@@ -39,7 +39,7 @@ except ImportError:
 # CONFIG
 # ============================================================
 
-BASE_PATH = r"D:\Python code\New Rank Automation"
+BASE_PATH = os.path.dirname(os.path.abspath(keywords.txt))
 
 INPUT_FILE = os.path.join(BASE_PATH, "keywords.txt")
 
@@ -47,7 +47,8 @@ OUTPUT_FILE_XLSX = os.path.join(BASE_PATH, "google_rank_mobile.xlsx")
 OUTPUT_FILE_CSV = os.path.join(BASE_PATH, "google_rank_mobile_live.csv")
 
 # Keep separate from the desktop profile
-CHROME_PROFILE = r"C:\RankBotMobileProfile"
+CHROME_PROFILE = (r"C:\RankBotMobileProfile" if os.name == "nt"
+                  else os.path.join(tempfile.gettempdir(), "RankBotMobileProfile"))
 
 TARGET_DOMAIN = "gempundit.com"
 
