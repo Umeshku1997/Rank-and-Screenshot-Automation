@@ -52,7 +52,9 @@ app.get('/api/run-automation', (req, res) => {
         CHROMEDRIVER_PATH: process.env.CHROMEDRIVER_PATH || "/usr/bin/chromedriver"
     };
 
-    res.write(`data: ${JSON.stringify({ log: "🚀 Initializing Desktop & Mobile Automation Tasks...\n" })}\n\n`);
+    // Send startup markers to both streams
+    res.write(`data: ${JSON.stringify({ log: "[DESKTOP] 🚀 Initializing Desktop Automation Task...\n" })}\n\n`);
+    res.write(`data: ${JSON.stringify({ log: "[MOBILE] 🚀 Initializing Mobile Automation Task...\n" })}\n\n`);
 
     // Direct Parallel Spawning of Desktop and Mobile Trackers
     const desktopProc = spawn(pythonExecutable, ['desktop_rank.py'], { cwd: projectRoot, env: customEnv });
@@ -71,26 +73,26 @@ app.get('/api/run-automation', (req, res) => {
         });
     };
 
-    // Capture standard logs AND errors explicitly to frontend stream
+    // Forward standard output & error logs with explicit UI tags
     desktopProc.stdout.on('data', (d) => handleData(d, '[DESKTOP]'));
     desktopProc.stderr.on('data', (d) => handleData(d, '[DESKTOP ERROR]'));
 
     mobileProc.stdout.on('data', (d) => handleData(d, '[MOBILE]'));
     mobileProc.stderr.on('data', (d) => handleData(d, '[MOBILE ERROR]'));
 
-    const checkDone = (code, scriptName) => {
-        const finishMsg = `\n[${scriptName} Finished] Exit Code: ${code}\n`;
+    const checkDone = (code, scriptName, prefix) => {
+        const finishMsg = `${prefix} [${scriptName} Finished] Exit Code: ${code}`;
         console.log(finishMsg);
         res.write(`data: ${JSON.stringify({ log: finishMsg })}\n\n`);
         activeProcesses--;
         if (activeProcesses === 0) {
-            res.write(`data: ${JSON.stringify({ log: `\n[Task Complete] All ranking processes completed.\n` })}\n\n`);
+            res.write(`data: ${JSON.stringify({ log: "[DESKTOP] [Task Complete]\n[MOBILE] [Task Complete]\n" })}\n\n`);
             res.end();
         }
     };
 
-    desktopProc.on('close', (code) => checkDone(code, 'DESKTOP'));
-    mobileProc.on('close', (code) => checkDone(code, 'MOBILE'));
+    desktopProc.on('close', (code) => checkDone(code, 'DESKTOP', '[DESKTOP]'));
+    mobileProc.on('close', (code) => checkDone(code, 'MOBILE', '[MOBILE]'));
 
     desktopProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[DESKTOP ERROR]'));
     mobileProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[MOBILE ERROR]'));
