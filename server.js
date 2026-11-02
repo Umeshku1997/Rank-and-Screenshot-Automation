@@ -1,17 +1,19 @@
-const express = require('express');
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+import express from 'express';
+import { spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Body parsing and static file serving
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Set proper headers for SSE streaming
 function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -57,7 +59,7 @@ app.get('/api/stream/together', (req, res) => {
     });
 });
 
-// 2. Generic Dynamic Stream Endpoint (For individual desktop_rank.py or mobile_rank.py)
+// 2. Generic Dynamic Stream Endpoint
 app.get('/api/stream', (req, res) => {
     setSSEHeaders(res);
 
@@ -94,7 +96,7 @@ app.get('/api/stream', (req, res) => {
     });
 });
 
-// 3. Fallback Route for Front-end Dashboard SPA
+// 3. Fallback Route
 app.get('*', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     if (fs.existsSync(indexPath)) {
