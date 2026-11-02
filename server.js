@@ -15,28 +15,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, './');
 
-// Compatibility setup for local folder references & keywords placement
-if (process.platform !== 'win32') {
-    const winPath = '/app/D:/Python code/New Rank Automation';
-    try {
-        if (!fs.existsSync(winPath)) {
-            fs.mkdirSync(winPath, { recursive: true });
-        }
-        const srcKeywords = path.join(projectRoot, 'keywords.txt');
-        const destKeywords = path.join(winPath, 'keywords.txt');
-        if (fs.existsSync(srcKeywords) && !fs.existsSync(destKeywords)) {
-            fs.copyFileSync(srcKeywords, destKeywords);
-        }
-    } catch (e) {
-        console.log("Path mapping note:", e.message);
-    }
-}
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(projectRoot, 'public')));
 
-// Run Automation Route with Parallel Execution of Desktop & Mobile
+// Run Automation Route: Triggering run_both.py together
 app.get('/api/run-automation', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -52,50 +35,43 @@ app.get('/api/run-automation', (req, res) => {
         CHROMEDRIVER_PATH: process.env.CHROMEDRIVER_PATH || "/usr/bin/chromedriver"
     };
 
-    // Send startup markers to both streams
-    res.write(`data: ${JSON.stringify({ log: "[DESKTOP] 🚀 Initializing Desktop Automation Task...\n" })}\n\n`);
-    res.write(`data: ${JSON.stringify({ log: "[MOBILE] 🚀 Initializing Mobile Automation Task...\n" })}\n\n`);
+    res.write(`data: ${JSON.stringify({ log: "[DESKTOP] 🚀 Spawning run_both.py script...\n[MOBILE] 🚀 Spawning run_both.py script...\n" })}\n\n`);
 
-    // Direct Parallel Spawning of Desktop and Mobile Trackers
-    const desktopProc = spawn(pythonExecutable, ['desktop_rank.py'], { cwd: projectRoot, env: customEnv });
-    const mobileProc = spawn(pythonExecutable, ['mobile_rank.py'], { cwd: projectRoot, env: customEnv });
+    // Spawning run_both.py directly just like VS Code
+    const pyProc = spawn(pythonExecutable, ['run_both.py', 'together'], { cwd: projectRoot, env: customEnv });
 
-    let activeProcesses = 2;
-
-    const handleData = (data, prefix) => {
+    const handleData = (data) => {
         const text = data.toString();
         const lines = text.split('\n');
         lines.forEach(line => {
             if (line.trim()) {
-                console.log(`${prefix} ${line}`);
-                res.write(`data: ${JSON.stringify({ log: `${prefix} ${line}` })}\n\n`);
+                console.log(line);
+                // Smart Routing for split terminals in index.html
+                if (line.includes('MOBILE') || line.includes('Mobile')) {
+                    res.write(`data: ${JSON.stringify({ log: `[MOBILE] ${line}` })}\n\n`);
+                } else {
+                    res.write(`data: ${JSON.stringify({ log: `[DESKTOP] ${line}` })}\n\n`);
+                }
             }
         });
     };
 
-    // Forward standard output & error logs with explicit UI tags
-    desktopProc.stdout.on('data', (d) => handleData(d, '[DESKTOP]'));
-    desktopProc.stderr.on('data', (d) => handleData(d, '[DESKTOP ERROR]'));
+    pyProc.stdout.on('data', handleData);
+    pyProc.stderr.on('data', (d) => {
+        const errText = d.toString();
+        console.error("STDERR:", errText);
+        res.write(`data: ${JSON.stringify({ log: `[DESKTOP ERROR] ${errText}` })}\n\n`);
+    });
 
-    mobileProc.stdout.on('data', (d) => handleData(d, '[MOBILE]'));
-    mobileProc.stderr.on('data', (d) => handleData(d, '[MOBILE ERROR]'));
+    pyProc.on('close', (code) => {
+        console.log(`run_both.py finished with code ${code}`);
+        res.write(`data: ${JSON.stringify({ log: `\n[DESKTOP] [Task Complete]\n[MOBILE] [Task Complete]\n` })}\n\n`);
+        res.end();
+    });
 
-    const checkDone = (code, scriptName, prefix) => {
-        const finishMsg = `${prefix} [${scriptName} Finished] Exit Code: ${code}`;
-        console.log(finishMsg);
-        res.write(`data: ${JSON.stringify({ log: finishMsg })}\n\n`);
-        activeProcesses--;
-        if (activeProcesses === 0) {
-            res.write(`data: ${JSON.stringify({ log: "[DESKTOP] [Task Complete]\n[MOBILE] [Task Complete]\n" })}\n\n`);
-            res.end();
-        }
-    };
-
-    desktopProc.on('close', (code) => checkDone(code, 'DESKTOP', '[DESKTOP]'));
-    mobileProc.on('close', (code) => checkDone(code, 'MOBILE', '[MOBILE]'));
-
-    desktopProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[DESKTOP ERROR]'));
-    mobileProc.on('error', (err) => handleData(`CRITICAL ERROR: ${err.message}`, '[MOBILE ERROR]'));
+    pyProc.on('error', (err) => {
+        res.write(`data: ${JSON.stringify({ log: `[DESKTOP ERROR] CRITICAL: ${err.message}` })}\n\n`);
+    });
 });
 
 app.get('/download-report', (req, res) => {
