@@ -1,7 +1,7 @@
 FROM node:18-bookworm-slim
 
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip xvfb ca-certificates curl \
+    python3 python3-pip ca-certificates curl \
     chromium chromium-driver fonts-noto fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
