@@ -13,6 +13,19 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Ensure keywords.txt directory exists for Windows path fallbacks
+const windowsDirPath = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
+if (!fs.existsSync(windowsDirPath)) {
+    fs.mkdirSync(windowsDirPath, { recursive: true });
+}
+
+// Copy local keywords.txt to Windows path fallback if present in root
+const rootKeywords = path.join(__dirname, 'keywords.txt');
+const fallbackKeywords = path.join(windowsDirPath, 'keywords.txt');
+if (fs.existsSync(rootKeywords) && !fs.existsSync(fallbackKeywords)) {
+    fs.copyFileSync(rootKeywords, fallbackKeywords);
+}
+
 function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -27,10 +40,15 @@ function runPythonProcess(req, res, targetScript, modeArg) {
     const scriptFile = targetScript || req.query.path || req.query.script || req.query.file || 'run_both.py';
     const scriptPath = path.join(__dirname, scriptFile);
 
-    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Executing ${scriptFile}...\n` })}\n\n`);
+    // Initial log line
+    const initMsg = `[System] Executing ${scriptFile}...\n`;
+    res.write(`data: ${initMsg}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'stdout', message: initMsg })}\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] File standard missing: ${scriptFile}\n` })}\n\n`);
+        const errorMsg = `[Error] File missing: ${scriptFile}\n`;
+        res.write(`data: ${errorMsg}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: errorMsg })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: 'end', message: '[Task Complete]' })}\n\n`);
         return res.end();
     }
@@ -50,30 +68,29 @@ function runPythonProcess(req, res, targetScript, modeArg) {
     });
 
     child.stdout.on('data', (data) => {
-        const lines = data.toString().split('\n');
-        lines.forEach(line => {
-            if (line.trim()) {
-                res.write(`data: ${JSON.stringify({ type: 'stdout', message: `${line}\n` })}\n\n`);
-            }
-        });
+        const rawText = data.toString();
+        // Send both plain string and structured JSON for maximum frontend UI compatibility
+        res.write(`data: ${rawText}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: rawText })}\n\n`);
     });
 
     child.stderr.on('data', (data) => {
-        const lines = data.toString().split('\n');
-        lines.forEach(line => {
-            if (line.trim()) {
-                res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${line}\n` })}\n\n`);
-            }
-        });
+        const rawText = data.toString();
+        res.write(`data: ${rawText}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${rawText}` })}\n\n`);
     });
 
     child.on('close', (code) => {
-        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete] Exit code: ${code}` })}\n\n`);
+        const endMsg = `[Task Complete] Exit code: ${code}`;
+        res.write(`data: ${endMsg}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'end', message: endMsg })}\n\n`);
         res.end();
     });
 
     child.on('error', (err) => {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[EXEC ERROR] ${err.message}\n` })}\n\n`);
+        const errStr = `[EXEC ERROR] ${err.message}\n`;
+        res.write(`data: ${errStr}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: errStr })}\n\n`);
         res.end();
     });
 
@@ -82,14 +99,14 @@ function runPythonProcess(req, res, targetScript, modeArg) {
     });
 }
 
-// 1. All Endpoints map to process runner cleanly
+// EventSource endpoints mapping
 app.get('/run-stream', (req, res) => runPythonProcess(req, res));
 app.get('/api/stream', (req, res) => runPythonProcess(req, res));
 app.get('/api/stream/together', (req, res) => runPythonProcess(req, res, 'run_both.py', 'together'));
 app.get('/api/stream/desktop', (req, res) => runPythonProcess(req, res, 'desktop_rank.py'));
 app.get('/api/stream/mobile', (req, res) => runPythonProcess(req, res, 'mobile_rank.py'));
 
-// 2. Serve public static assets
+// Serve UI Static Assets
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/', (req, res) => {
