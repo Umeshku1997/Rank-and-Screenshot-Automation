@@ -17,11 +17,11 @@ import pandas as pd
 
 from urllib.parse import urlparse, parse_qs, unquote, quote_plus
 
-from selenium.webdriver.chrome.service import Service
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 
 from selenium.common.exceptions import (
@@ -41,6 +41,7 @@ except ImportError:
 # ============================================================
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
 INPUT_FILE = os.path.join(BASE_PATH, "keywords.txt")
 
 OUTPUT_FILE_XLSX = os.path.join(BASE_PATH, "google_rank_desktop.xlsx")
@@ -1889,11 +1890,14 @@ def search_keyword(driver, keyword):
 # ============================================================
 # CREATE DRIVER
 # ============================================================
+
 def make_service():
+    """Render/Linux par system chromedriver use karo, Windows par Selenium khud handle karega."""
     path = os.environ.get("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
     if sys.platform != "win32" and os.path.exists(path):
         return Service(path)
     return Service()
+
 
 def create_driver():
 
@@ -1922,11 +1926,12 @@ def create_driver():
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
         chrome_bin = os.environ.get("CHROME_BIN", "/usr/bin/chromium")
         if os.path.exists(chrome_bin):
             options.binary_location = chrome_bin
             
-    driver = webdriver.Chrome(options=options)
+    driver = webdriver.Chrome(service=make_service(), options=options)
 
     driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT)
     driver.set_script_timeout(10)
