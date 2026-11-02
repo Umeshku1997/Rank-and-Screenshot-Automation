@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import shutil
+import tempfile
 import io
 import math
 import time
@@ -38,7 +39,7 @@ except ImportError:
 # CONFIG
 # ============================================================
 
-BASE_PATH = r"D:\Python code\New Rank Automation"
+BASE_PATH = os.path.dirname(os.path.abspath(keywords.txt))
 
 INPUT_FILE = os.path.join(BASE_PATH, "keywords.txt")
 
@@ -46,7 +47,8 @@ OUTPUT_FILE_XLSX = os.path.join(BASE_PATH, "google_rank_desktop.xlsx")
 OUTPUT_FILE_CSV = os.path.join(BASE_PATH, "google_rank_desktop_live.csv")
 
 # Separate from the mobile profile (so both can run at the same time)
-CHROME_PROFILE = r"C:\RankBotProfile"
+CHROME_PROFILE = (r"C:\RankBotProfile" if os.name == "nt"
+                  else os.path.join(tempfile.gettempdir(), "RankBotProfile"))
 
 GEMPUNDIT_DOMAIN = "gempundit.com"
 
