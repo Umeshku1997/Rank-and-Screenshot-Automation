@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import io
 import math
@@ -2079,6 +2080,16 @@ def search_keyword(driver, keyword):
 def build_options(custom_device=False, profile=CHROME_PROFILE):
 
     options = Options()
+
+    # Render Headless Options Setup
+    if sys.platform != "win32":
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        chrome_bin = os.environ.get("CHROME_BIN", "/usr/bin/chromium")
+        if os.path.exists(chrome_bin):
+            options.binary_location = chrome_bin
 
     options.page_load_strategy = "eager"
 
