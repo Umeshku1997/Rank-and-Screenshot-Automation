@@ -13,28 +13,34 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 1. Explicit SSE Route Handling (Placed FIRST to block static fallback)
-app.get(['/run-stream', '/api/stream', '/api/stream/together'], (req, res) => {
-    // Force SSE Headers
+function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     if (res.flushHeaders) res.flushHeaders();
+}
 
-    const scriptFile = req.query.path || req.query.script || 'run_both.py';
-    const scriptPath = path.join(__dirname, scriptFile);
-    const pythonBin = process.env.PYTHON_BIN || 'python3';
+// Global script runner logic
+function executeScript(req, res, forceScript) {
+    setSSEHeaders(res);
 
-    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Starting script: ${scriptFile}...\n` })}\n\n`);
+    const scriptName = forceScript || req.query.path || req.query.script || req.query.file || 'run_both.py';
+    const scriptPath = path.join(__dirname, scriptName);
+    const mode = req.query.mode || '';
+
+    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Initializing ${scriptName} ${mode}...\n` })}\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] Script file '${scriptFile}' not found in root directory!\n` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] Script file '${scriptName}' not found!\n` })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: 'end', message: '[Task Complete]' })}\n\n`);
         return res.end();
     }
 
-    const child = spawn(pythonBin, ['-u', scriptPath], {
+    const args = ['-u', scriptPath];
+    if (mode) args.push(mode);
+
+    const child = spawn('python3', args, {
         cwd: __dirname,
         env: {
             ...process.env,
@@ -44,17 +50,15 @@ app.get(['/run-stream', '/api/stream', '/api/stream/together'], (req, res) => {
     });
 
     child.stdout.on('data', (data) => {
-        const text = data.toString();
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: text })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: data.toString() })}\n\n`);
     });
 
     child.stderr.on('data', (data) => {
-        const text = data.toString();
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${text}` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${data.toString()}` })}\n\n`);
     });
 
     child.on('close', (code) => {
-        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete] Exit Code: ${code}` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete] Exit code: ${code}` })}\n\n`);
         res.end();
     });
 
@@ -66,18 +70,23 @@ app.get(['/run-stream', '/api/stream', '/api/stream/together'], (req, res) => {
     req.on('close', () => {
         child.kill();
     });
-});
+}
 
-// 2. Static File Serving (No automatic index.html resolution)
+// EventSource Routes
+app.get('/run-stream', (req, res) => executeScript(req, res));
+app.get('/api/stream', (req, res) => executeScript(req, res));
+app.get('/api/stream/desktop', (req, res) => executeScript(req, res, 'desktop_rank.py'));
+app.get('/api/stream/mobile', (req, res) => executeScript(req, res, 'mobile_rank.py'));
+
+// Serve Static Frontend Assets (bypassing route collisions)
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
-// 3. Page Route for Front-end UI
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('Index HTML not found');
+        res.status(404).send('Dashboard HTML missing');
     }
 });
 
