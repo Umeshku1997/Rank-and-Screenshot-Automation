@@ -13,40 +13,55 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Automatic Windows path creation on Linux container
-function ensureVirtualKeywordsPath() {
+// Dynamic Windows Absolute Path Mapper for Linux Container
+function setupWindowsVirtualPath() {
     try {
-        const virtualDir = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
-        if (!fs.existsSync(virtualDir)) {
-            fs.mkdirSync(virtualDir, { recursive: true });
-        }
-        const sourceFile = path.join(__dirname, 'keywords.txt');
-        const targetFile = path.join(virtualDir, 'keywords.txt');
+        const rootKeywords = path.join(__dirname, 'keywords.txt');
+        
+        // Exact Windows Path structure Python is looking for
+        const targetDir = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
+        const targetKeywords = path.join(targetDir, 'keywords.txt');
 
-        if (fs.existsSync(sourceFile)) {
-            fs.copyFileSync(sourceFile, targetFile);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        if (fs.existsSync(rootKeywords)) {
+            // Copy file directly to Windows virtual directory
+            fs.copyFileSync(rootKeywords, targetKeywords);
+            console.log(`✅ [PATH SYNC SUCCESS] Copied keywords.txt to: ${targetKeywords}`);
+        } else {
+            console.warn("⚠️ [PATH WARN] keywords.txt missing in root folder!");
         }
     } catch (err) {
-        console.error("Virtual path mapping failed:", err.message);
+        console.error("❌ [PATH ERROR] Failure mapping path:", err.message);
     }
 }
 
-function handleExecution(req, res, forceScript) {
+// Initial Sync on server startup
+setupWindowsVirtualPath();
+
+function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     if (res.flushHeaders) res.flushHeaders();
+}
 
-    ensureVirtualKeywordsPath();
+function handleScriptExecution(req, res, forceScript) {
+    setSSEHeaders(res);
+    
+    // Always re-sync file path right before running python
+    setupWindowsVirtualPath();
 
     const scriptFile = forceScript || req.query.path || req.query.script || 'run_both.py';
     const scriptPath = path.join(__dirname, scriptFile);
 
-    res.write(`data: [System] Initializing script: ${scriptFile}...\n\n`);
+    res.write(`data: [System] Starting live automation for ${scriptFile}...\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
-        res.write(`data: [Error] Script missing in container: ${scriptFile}\n\n`);
+        res.write(`data: [Error] File missing: ${scriptFile}\n\n`);
         res.write(`data: [Task Complete]\n\n`);
         return res.end();
     }
@@ -94,12 +109,12 @@ function handleExecution(req, res, forceScript) {
     });
 }
 
-// Routes Mapping
-app.get('/run-stream', (req, res) => handleExecution(req, res));
-app.get('/api/stream', (req, res) => handleExecution(req, res));
-app.get('/api/stream/together', (req, res) => handleExecution(req, res, 'run_both.py'));
-app.get('/api/stream/desktop', (req, res) => handleExecution(req, res, 'desktop_rank.py'));
-app.get('/api/stream/mobile', (req, res) => handleExecution(req, res, 'mobile_rank.py'));
+// EventSource Routes
+app.get('/run-stream', (req, res) => handleScriptExecution(req, res));
+app.get('/api/stream', (req, res) => handleScriptExecution(req, res));
+app.get('/api/stream/together', (req, res) => handleScriptExecution(req, res, 'run_both.py'));
+app.get('/api/stream/desktop', (req, res) => handleScriptExecution(req, res, 'desktop_rank.py'));
+app.get('/api/stream/mobile', (req, res) => handleScriptExecution(req, res, 'mobile_rank.py'));
 
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
