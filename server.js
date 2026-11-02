@@ -21,15 +21,13 @@ function setSSEHeaders(res) {
     if (res.flushHeaders) res.flushHeaders();
 }
 
-// Global script runner logic
 function executeScript(req, res, forceScript) {
     setSSEHeaders(res);
 
     const scriptName = forceScript || req.query.path || req.query.script || req.query.file || 'run_both.py';
     const scriptPath = path.join(__dirname, scriptName);
-    const mode = req.query.mode || '';
 
-    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Initializing ${scriptName} ${mode}...\n` })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Initializing ${scriptName}...\n` })}\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
         res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] Script file '${scriptName}' not found!\n` })}\n\n`);
@@ -37,10 +35,13 @@ function executeScript(req, res, forceScript) {
         return res.end();
     }
 
-    const args = ['-u', scriptPath];
-    if (mode) args.push(mode);
+    // Always pass 'together' argument when executing run_both.py
+    const scriptArgs = ['-u', scriptPath];
+    if (scriptName === 'run_both.py') {
+        scriptArgs.push('together');
+    }
 
-    const child = spawn('python3', args, {
+    const child = spawn('python3', scriptArgs, {
         cwd: __dirname,
         env: {
             ...process.env,
@@ -50,11 +51,13 @@ function executeScript(req, res, forceScript) {
     });
 
     child.stdout.on('data', (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: data.toString() })}\n\n`);
+        const text = data.toString();
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: text })}\n\n`);
     });
 
     child.stderr.on('data', (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${data.toString()}` })}\n\n`);
+        const text = data.toString();
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[LOG] ${text}` })}\n\n`);
     });
 
     child.on('close', (code) => {
@@ -72,13 +75,11 @@ function executeScript(req, res, forceScript) {
     });
 }
 
-// EventSource Routes
+// Stream Endpoints
 app.get('/run-stream', (req, res) => executeScript(req, res));
 app.get('/api/stream', (req, res) => executeScript(req, res));
-app.get('/api/stream/desktop', (req, res) => executeScript(req, res, 'desktop_rank.py'));
-app.get('/api/stream/mobile', (req, res) => executeScript(req, res, 'mobile_rank.py'));
 
-// Serve Static Frontend Assets (bypassing route collisions)
+// Serve UI Static Assets
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/', (req, res) => {
@@ -86,7 +87,7 @@ app.get('/', (req, res) => {
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('Dashboard HTML missing');
+        res.status(404).send('Dashboard UI HTML missing');
     }
 });
 
