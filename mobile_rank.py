@@ -22,6 +22,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 
 from selenium.common.exceptions import (
@@ -2171,6 +2172,14 @@ def kill_old_chromedriver():
     return
 
 
+def make_service():
+    """Render/Linux par system chromedriver use karo, Windows par Selenium khud handle karega."""
+    path = os.environ.get("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+    if sys.platform != "win32" and os.path.exists(path):
+        return Service(path)
+    return Service()
+
+
 def create_driver():
 
     print()
@@ -2197,7 +2206,7 @@ def create_driver():
         try:
             print(f"   ▶ Try: {label}")
 
-            driver = webdriver.Chrome(options=build_options(custom, profile))
+            driver = webdriver.Chrome(service=make_service(), options=build_options(custom, profile))
 
             break
 
