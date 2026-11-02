@@ -14,6 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Set mandatory SSE headers for real-time log streaming
 function setupSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -22,36 +23,43 @@ function setupSSEHeaders(res) {
     if (res.flushHeaders) res.flushHeaders();
 }
 
-// Handler function for executing Python scripts safely
-function handlePythonExecution(req, res, targetScript) {
+// Handler to spawn Python script and stream terminal output live
+function executePythonScript(req, res, scriptFileName) {
     setupSSEHeaders(res);
 
+    const targetScript = scriptFileName || req.query.path || req.query.script || 'run_both.py';
     const scriptPath = path.join(__dirname, targetScript);
     const pythonBin = process.env.PYTHON_BIN || 'python3';
 
-    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Executing ${targetScript} on Render...\n` })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Starting script: ${targetScript}...\n` })}\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] Script file '${targetScript}' not found on server!\n` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] Script file '${targetScript}' not found on server root!\n` })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: 'end', message: '[Task Complete]' })}\n\n`);
         return res.end();
     }
 
-    const child = spawn(pythonBin, ['-u', targetScript], {
+    const child = spawn(pythonBin, ['-u', scriptPath], {
         cwd: __dirname,
-        env: { ...process.env, PYTHONUNBUFFERED: '1', DISPLAY: process.env.DISPLAY || ':99' }
+        env: {
+            ...process.env,
+            PYTHONUNBUFFERED: '1',
+            DISPLAY: process.env.DISPLAY || ':99'
+        }
     });
 
     child.stdout.on('data', (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: data.toString() })}\n\n`);
+        const text = data.toString();
+        res.write(`data: ${JSON.stringify({ type: 'stdout', message: text })}\n\n`);
     });
 
     child.stderr.on('data', (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: data.toString() })}\n\n`);
+        const text = data.toString();
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: text })}\n\n`);
     });
 
     child.on('close', (code) => {
-        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete] (Code: ${code})` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete] (Exit Code: ${code})` })}\n\n`);
         res.end();
     });
 
@@ -65,24 +73,23 @@ function handlePythonExecution(req, res, targetScript) {
     });
 }
 
-// 1. Dual stream / Together route handlers
-app.get(['/api/stream/together', '/run-together', '/api/run-together'], (req, res) => {
-    handlePythonExecution(req, res, 'run_both.py');
+// 1. Primary Endpoint matching exact Frontend request (/run-stream)
+app.get('/run-stream', (req, res) => {
+    executePythonScript(req, res);
 });
 
-// 2. Generic API stream handler (catches query params like ?script=run_both.py or ?file=desktop_rank.py)
-app.get(['/api/stream', '/stream', '/api/run', '/run'], (req, res) => {
-    const scriptFile = req.query.script || req.query.file || req.query.name || 'run_both.py';
-    handlePythonExecution(req, res, scriptFile);
+// 2. Auxiliary Endpoints matching secondary or dynamic calls
+app.get(['/api/stream', '/api/stream/together', '/run', '/api/run'], (req, res) => {
+    executePythonScript(req, res);
 });
 
-// 3. Static fallback
+// 3. Static fallback for Dashboard UI
 app.get('*', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('UI Index File Not Found');
+        res.status(404).send('Dashboard UI Index File Not Found');
     }
 });
 
