@@ -13,49 +13,55 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Dynamic Windows Path mapping so Python script gets keywords.txt
-function ensureKeywordsPath() {
+// FIX REASON 1: Create virtual Windows path alias on Linux container
+function syncWindowsPathAlias() {
     try {
         const virtualDir = path.join(__dirname, 'D:', 'Python code', 'New Rank Automation');
         if (!fs.existsSync(virtualDir)) {
             fs.mkdirSync(virtualDir, { recursive: true });
         }
-        const sourceFile = path.join(__dirname, 'keywords.txt');
-        const targetFile = path.join(virtualDir, 'keywords.txt');
+        const rootKeywords = path.join(__dirname, 'keywords.txt');
+        const virtualKeywords = path.join(virtualDir, 'keywords.txt');
 
-        if (fs.existsSync(sourceFile)) {
-            fs.copyFileSync(sourceFile, targetFile);
+        if (fs.existsSync(rootKeywords)) {
+            fs.copyFileSync(rootKeywords, virtualKeywords);
         }
-    } catch (e) {
-        console.error("Path Mapping Error:", e.message);
+    } catch (err) {
+        console.error("Path Sync Error:", err.message);
     }
 }
 
-function runStreamProcess(req, res, targetScript, modeArg) {
+// FIX REASON 4: Standard SSE headers for Render Cloud Reverse Proxy
+function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     if (res.flushHeaders) res.flushHeaders();
+}
 
-    ensureKeywordsPath();
+function handleScriptExecution(req, res, forceScript) {
+    setSSEHeaders(res);
+    syncWindowsPathAlias();
 
-    const scriptFile = targetScript || req.query.path || req.query.script || 'run_both.py';
+    const scriptFile = forceScript || req.query.path || req.query.script || 'run_both.py';
     const scriptPath = path.join(__dirname, scriptFile);
 
-    res.write(`data: [System] Starting script execution: ${scriptFile}...\n\n`);
+    res.write(`data: [System] Starting live automation: ${scriptFile}...\n\n`);
 
     if (!fs.existsSync(scriptPath)) {
-        res.write(`data: [Error] File missing in container: ${scriptFile}\n\n`);
+        res.write(`data: [Error] File not found: ${scriptFile}\n\n`);
         res.write(`data: [Task Complete]\n\n`);
         return res.end();
     }
 
+    // FIX REASON 2: Auto-pass 'together' argument when run_both.py is executed
     const scriptArgs = ['-u', scriptPath];
     if (scriptFile === 'run_both.py') {
-        scriptArgs.push(modeArg || req.query.mode || 'together');
+        scriptArgs.push(req.query.mode || 'together');
     }
 
+    // FIX REASON 3: Force DISPLAY=:99 and unbuffered Python output
     const child = spawn('python3', scriptArgs, {
         cwd: __dirname,
         env: {
@@ -94,12 +100,12 @@ function runStreamProcess(req, res, targetScript, modeArg) {
     });
 }
 
-// Endpoints
-app.get('/run-stream', (req, res) => runStreamProcess(req, res));
-app.get('/api/stream', (req, res) => runStreamProcess(req, res));
-app.get('/api/stream/together', (req, res) => runStreamProcess(req, res, 'run_both.py', 'together'));
-app.get('/api/stream/desktop', (req, res) => runStreamProcess(req, res, 'desktop_rank.py'));
-app.get('/api/stream/mobile', (req, res) => runStreamProcess(req, res, 'mobile_rank.py'));
+// Endpoints Mapping
+app.get('/run-stream', (req, res) => handleScriptExecution(req, res));
+app.get('/api/stream', (req, res) => handleScriptExecution(req, res));
+app.get('/api/stream/together', (req, res) => handleScriptExecution(req, res, 'run_both.py'));
+app.get('/api/stream/desktop', (req, res) => handleScriptExecution(req, res, 'desktop_rank.py'));
+app.get('/api/stream/mobile', (req, res) => handleScriptExecution(req, res, 'mobile_rank.py'));
 
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
@@ -108,7 +114,7 @@ app.get('/', (req, res) => {
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('UI Index Missing');
+        res.status(404).send('Dashboard UI Index Missing');
     }
 });
 
