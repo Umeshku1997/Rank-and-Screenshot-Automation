@@ -39,7 +39,7 @@ except ImportError:
 # CONFIG
 # ============================================================
 
-BASE_PATH = os.path.dirname(os.path.abspath(keywords.txt))
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 INPUT_FILE = os.path.join(BASE_PATH, "keywords.txt")
 
