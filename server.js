@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-function setSSEHeaders(res) {
+function setupSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
@@ -22,16 +22,22 @@ function setSSEHeaders(res) {
     if (res.flushHeaders) res.flushHeaders();
 }
 
-// 1. Specific Stream Route for 'Run Desktop & Mobile Together'
-app.get('/api/stream/together', (req, res) => {
-    setSSEHeaders(res);
+// Handler function for executing Python scripts safely
+function handlePythonExecution(req, res, targetScript) {
+    setupSSEHeaders(res);
 
+    const scriptPath = path.join(__dirname, targetScript);
     const pythonBin = process.env.PYTHON_BIN || 'python3';
-    const scriptPath = path.join(__dirname, 'run_both.py');
 
-    res.write(`data: ${JSON.stringify({ type: 'stdout', message: 'Starting Dual Execution...\n' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'stdout', message: `[System] Executing ${targetScript} on Render...\n` })}\n\n`);
 
-    const child = spawn(pythonBin, ['-u', scriptPath, 'together'], {
+    if (!fs.existsSync(scriptPath)) {
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Error] Script file '${targetScript}' not found on server!\n` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'end', message: '[Task Complete]' })}\n\n`);
+        return res.end();
+    }
+
+    const child = spawn(pythonBin, ['-u', targetScript], {
         cwd: __dirname,
         env: { ...process.env, PYTHONUNBUFFERED: '1', DISPLAY: process.env.DISPLAY || ':99' }
     });
@@ -45,64 +51,38 @@ app.get('/api/stream/together', (req, res) => {
     });
 
     child.on('close', (code) => {
-        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete]` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete] (Code: ${code})` })}\n\n`);
         res.end();
     });
 
     child.on('error', (err) => {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `Execution Error: ${err.message}` })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `[Process Error] ${err.message}\n` })}\n\n`);
         res.end();
     });
 
     req.on('close', () => {
         child.kill();
     });
+}
+
+// 1. Dual stream / Together route handlers
+app.get(['/api/stream/together', '/run-together', '/api/run-together'], (req, res) => {
+    handlePythonExecution(req, res, 'run_both.py');
 });
 
-// 2. Generic Dynamic Stream Endpoint
-app.get('/api/stream', (req, res) => {
-    setSSEHeaders(res);
-
-    const scriptFile = req.query.script || 'run_both.py';
-    const scriptPath = path.join(__dirname, scriptFile);
-
-    if (!fs.existsSync(scriptPath)) {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: `File not found: ${scriptFile}` })}\n\n`);
-        res.end();
-        return;
-    }
-
-    const pythonBin = process.env.PYTHON_BIN || 'python3';
-    const child = spawn(pythonBin, ['-u', scriptPath], {
-        cwd: __dirname,
-        env: { ...process.env, PYTHONUNBUFFERED: '1', DISPLAY: process.env.DISPLAY || ':99' }
-    });
-
-    child.stdout.on('data', (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'stdout', message: data.toString() })}\n\n`);
-    });
-
-    child.stderr.on('data', (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'stderr', message: data.toString() })}\n\n`);
-    });
-
-    child.on('close', (code) => {
-        res.write(`data: ${JSON.stringify({ type: 'end', message: `[Task Complete]` })}\n\n`);
-        res.end();
-    });
-
-    req.on('close', () => {
-        child.kill();
-    });
+// 2. Generic API stream handler (catches query params like ?script=run_both.py or ?file=desktop_rank.py)
+app.get(['/api/stream', '/stream', '/api/run', '/run'], (req, res) => {
+    const scriptFile = req.query.script || req.query.file || req.query.name || 'run_both.py';
+    handlePythonExecution(req, res, scriptFile);
 });
 
-// 3. Fallback Route
+// 3. Static fallback
 app.get('*', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send('Dashboard UI Index File Not Found');
+        res.status(404).send('UI Index File Not Found');
     }
 });
 
