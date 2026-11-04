@@ -40,7 +40,26 @@ function setupWindowsVirtualPath() {
     }
 }
 
-// Initial Sync on boot
+// Clean old profile locks to prevent Selenium Chrome freeze on Linux
+function clearProfileLocks() {
+    try {
+        const profileDirs = [
+            path.join(__dirname, 'chrome_profile'),
+            path.join(__dirname, 'mobile_profile'),
+            path.join(__dirname, 'desktop_profile'),
+            '/tmp/chrome_profile'
+        ];
+        profileDirs.forEach(dir => {
+            if (fs.existsSync(dir)) {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+    } catch (e) {
+        // Safe catch
+    }
+}
+
+// Initial Boot Sync
 setupWindowsVirtualPath();
 
 function setSSEHeaders(res) {
@@ -53,7 +72,8 @@ function setSSEHeaders(res) {
 
 function runScript(req, res, forceScript) {
     setSSEHeaders(res);
-    setupWindowsVirtualPath(); // Always keep paths synced before execution
+    setupWindowsVirtualPath(); 
+    clearProfileLocks();
 
     let scriptFile = forceScript || req.query.path || req.query.script || 'run_both.py';
     scriptFile = path.basename(String(scriptFile));
@@ -72,6 +92,7 @@ function runScript(req, res, forceScript) {
         scriptArgs.push(req.query.mode || 'together');
     }
 
+    // Spawn Python Process with complete environment configuration for Linux Headless Chrome
     const child = spawn('python3', scriptArgs, {
         cwd: __dirname,
         env: {
@@ -80,7 +101,8 @@ function runScript(req, res, forceScript) {
             PYTHONIOENCODING: 'utf-8',
             DISPLAY: process.env.DISPLAY || ':99',
             CHROME_BIN: process.env.CHROME_BIN || '/usr/bin/chromium',
-            CHROMEDRIVER_PATH: process.env.CHROMEDRIVER_PATH || '/usr/bin/chromedriver'
+            CHROMEDRIVER_PATH: process.env.CHROMEDRIVER_PATH || '/usr/bin/chromedriver',
+            HOME: '/tmp'
         }
     });
 
