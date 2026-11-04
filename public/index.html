@@ -945,7 +945,6 @@
       const rawPath = decodeURIComponent(encodedScriptPath);
       const isDualMode = mode === 'dual' || rawPath.toLowerCase().includes('run_both');
 
-      // Determine backend stream route based on target script
       let streamUrl = `/run-stream?path=${encodeURIComponent(rawPath)}&mode=together`;
       if (rawPath.includes('desktop_rank.py')) {
         streamUrl = '/api/stream/desktop';
@@ -966,18 +965,19 @@
 
       runningTasks[taskId] = task;
 
+      task.eventSource = new EventSource(streamUrl);
+
       task.eventSource.onmessage = function(event) {
         const logLine = event.data;
         if (!logLine) return;
 
-        // Skip SSE heartbeat lines
         if (logLine.startsWith(':') || logLine === ': keep-alive') return;
 
         if (task.mode === 'single') {
           const cleanLine = logLine.replace(/\[MOBILE\]|\[DESKTOP\]/g, '').trim();
           if (cleanLine) task.logs.single.push({ text: cleanLine, color: '#a7f3d0' });
         } else {
-          // Strict Split Routing Logic (Desktop vs Mobile Separator)
+          // Strict Split Routing Logic
           if (logLine.includes('[MOBILE]')) {
             const cleanLine = logLine.replace('[MOBILE]', '').trim();
             if (cleanLine) task.logs.mobile.push({ text: cleanLine, color: '#38bdf8' });
@@ -985,20 +985,10 @@
             const cleanLine = logLine.replace('[DESKTOP]', '').trim();
             if (cleanLine) task.logs.desktop.push({ text: cleanLine, color: '#a7f3d0' });
           } else {
-            // General system logs strictly stay on Desktop window only
             task.logs.desktop.push({ text: logLine, color: '#fbbf24' });
           }
         }
 
-        if (activeTaskId === taskId) {
-          updateTerminalLogs(task);
-        }
-      };
-
-        if (activeTaskId === taskId) {
-          updateTerminalLogs(task);
-        }
-      };
         if (activeTaskId === taskId) {
           updateTerminalLogs(task);
         }
