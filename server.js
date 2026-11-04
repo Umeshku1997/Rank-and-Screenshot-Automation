@@ -19,6 +19,30 @@ const ALLOWED_SCRIPTS = new Set(['run_both.py', 'desktop_rank.py', 'mobile_rank.
 // Download ke liye allowed file types
 const ALLOWED_DOWNLOAD_EXT = new Set(['.xlsx', '.csv', '.png']);
 
+// Dynamic Windows Path Mapper for Linux Container (Python Script Path Dependency Fix)
+function setupWindowsVirtualPath() {
+    try {
+        const rootKeywords = path.join(__dirname, 'keywords.txt');
+        if (!fs.existsSync(rootKeywords)) return;
+
+        const targetPaths = [
+            path.join('/D:', 'Python code', 'New Rank Automation', 'keywords.txt'),
+            path.join(__dirname, 'D:', 'Python code', 'New Rank Automation', 'keywords.txt')
+        ];
+
+        targetPaths.forEach(targetFile => {
+            const dir = path.dirname(targetFile);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.copyFileSync(rootKeywords, targetFile);
+        });
+    } catch (err) {
+        // Safe catch for environment restrictions
+    }
+}
+
+// Initial Sync on boot
+setupWindowsVirtualPath();
+
 function setSSEHeaders(res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -29,6 +53,7 @@ function setSSEHeaders(res) {
 
 function runScript(req, res, forceScript) {
     setSSEHeaders(res);
+    setupWindowsVirtualPath(); // Always keep paths synced before execution
 
     let scriptFile = forceScript || req.query.path || req.query.script || 'run_both.py';
     scriptFile = path.basename(String(scriptFile));
@@ -52,7 +77,8 @@ function runScript(req, res, forceScript) {
         env: {
             ...process.env,
             PYTHONUNBUFFERED: '1',
-            PYTHONIOENCODING: 'utf-8'
+            PYTHONIOENCODING: 'utf-8',
+            DISPLAY: process.env.DISPLAY || ':99'
         }
     });
 
