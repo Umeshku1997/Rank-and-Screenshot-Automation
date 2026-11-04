@@ -977,16 +977,23 @@
           const cleanLine = logLine.replace(/\[MOBILE\]|\[DESKTOP\]/g, '').trim();
           if (cleanLine) task.logs.single.push({ text: cleanLine, color: '#a7f3d0' });
         } else {
-          // Strict Split Routing Logic
+          // Strict Split Routing Logic (Desktop vs Mobile Separator)
           if (logLine.includes('[MOBILE]')) {
             const cleanLine = logLine.replace('[MOBILE]', '').trim();
             if (cleanLine) task.logs.mobile.push({ text: cleanLine, color: '#38bdf8' });
-          } else {
-            // General outputs & [DESKTOP] logs routed exclusively to Desktop screen
+          } else if (logLine.includes('[DESKTOP]')) {
             const cleanLine = logLine.replace('[DESKTOP]', '').trim();
             if (cleanLine) task.logs.desktop.push({ text: cleanLine, color: '#a7f3d0' });
+          } else {
+            // General system logs strictly stay on Desktop window only
+            task.logs.desktop.push({ text: logLine, color: '#fbbf24' });
           }
         }
+
+        if (activeTaskId === taskId) {
+          updateTerminalLogs(task);
+        }
+      };
 
         if (activeTaskId === taskId) {
           updateTerminalLogs(task);
