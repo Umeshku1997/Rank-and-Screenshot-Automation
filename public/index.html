@@ -939,11 +939,21 @@
       }
     }
 
-    // MULTI-TASK ACTIVE DOCK ENGINE WITH ENCODED URL SAFE STREAM
+    // MULTI-TASK ACTIVE DOCK ENGINE WITH FULL SSE BACKEND ROUTING
     function launchTask(encodedScriptPath, taskTitle, mode = 'single') {
       const taskId = `task_${Date.now()}`;
       const rawPath = decodeURIComponent(encodedScriptPath);
       const isDualMode = mode === 'dual' || rawPath.toLowerCase().includes('run_both');
+
+      // Determine backend stream route based on target script
+      let streamUrl = `/run-stream?path=${encodeURIComponent(rawPath)}&mode=together`;
+      if (rawPath.includes('desktop_rank.py')) {
+        streamUrl = '/api/stream/desktop';
+      } else if (rawPath.includes('mobile_rank.py')) {
+        streamUrl = '/api/stream/mobile';
+      } else if (rawPath.includes('run_both.py')) {
+        streamUrl = '/api/stream/together';
+      }
 
       const task = {
         id: taskId,
@@ -956,12 +966,15 @@
 
       runningTasks[taskId] = task;
 
-      // URL Safe Stream Connection
-      task.eventSource = new EventSource(`/api/scripts/run-stream?path=${encodeURIComponent(rawPath)}&task_id=${taskId}`);
+      // EventSource connection to backend stream
+      task.eventSource = new EventSource(streamUrl);
 
       task.eventSource.onmessage = function(event) {
         const logLine = event.data;
         if (!logLine) return;
+
+        // Skip SSE heartbeat lines
+        if (logLine.startsWith(':') || logLine === ': keep-alive') return;
 
         if (task.mode === 'single') {
           const cleanLine = logLine.replace('[MOBILE]', '').replace('[DESKTOP]', '').trim();
@@ -975,6 +988,7 @@
             task.logs.desktop.push({ text: cleanLine, color: '#a7f3d0' });
           } else {
             task.logs.desktop.push({ text: logLine, color: '#fbbf24' });
+            task.logs.mobile.push({ text: logLine, color: '#fbbf24' });
           }
         }
 
@@ -1128,55 +1142,6 @@
     }
 
     renderLevel1();
-// Universal Stream Handler for Terminals
-    window.runAutomationStream = function(endpoint, desktopId = 'desktopTerminal', mobileId = 'mobileTerminal') {
-        const desktopTerm = document.getElementById(desktopId);
-        const mobileTerm = document.getElementById(mobileId);
-
-        if (desktopTerm) desktopTerm.textContent = "[System] Connecting to Desktop Stream...\n";
-        if (mobileTerm) mobileTerm.textContent = "[System] Connecting to Mobile Stream...\n";
-
-        const eventSource = new EventSource(endpoint);
-
-        eventSource.onmessage = function (event) {
-            if (!event.data) return;
-
-            let logText = event.data;
-            try {
-                const parsed = JSON.parse(event.data);
-                logText = parsed.message || parsed.text || event.data;
-            } catch (e) {
-                logText = event.data;
-            }
-
-            // Route logs to Desktop / Mobile terminals cleanly
-            if (logText.includes('[MOBILE]')) {
-                if (mobileTerm) {
-                    mobileTerm.textContent += logText + "\n";
-                    mobileTerm.scrollTop = mobileTerm.scrollHeight;
-                }
-            } else if (logText.includes('[DESKTOP]')) {
-                if (desktopTerm) {
-                    desktopTerm.textContent += logText + "\n";
-                    desktopTerm.scrollTop = desktopTerm.scrollHeight;
-                }
-            } else {
-                // General system logs go to both
-                if (desktopTerm) {
-                    desktopTerm.textContent += logText + "\n";
-                    desktopTerm.scrollTop = desktopTerm.scrollHeight;
-                }
-                if (mobileTerm) {
-                    mobileTerm.textContent += logText + "\n";
-                    mobileTerm.scrollTop = mobileTerm.scrollHeight;
-                }
-            }
-        };
-
-        eventSource.onerror = function (err) {
-            console.error("SSE Connection Closed/Error:", err);
-            eventSource.close();
-        };
-    };  </script>
+  </script>
 </body>
 </html>
