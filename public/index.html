@@ -939,7 +939,7 @@
       }
     }
 
-    // MULTI-TASK ACTIVE DOCK ENGINE WITH FULL SSE BACKEND ROUTING
+    // MULTI-TASK ACTIVE DOCK ENGINE WITH STRICT SPLIT TERMINAL LOG ROUTING
     function launchTask(encodedScriptPath, taskTitle, mode = 'single') {
       const taskId = `task_${Date.now()}`;
       const rawPath = decodeURIComponent(encodedScriptPath);
@@ -977,18 +977,17 @@
         if (logLine.startsWith(':') || logLine === ': keep-alive') return;
 
         if (task.mode === 'single') {
-          const cleanLine = logLine.replace('[MOBILE]', '').replace('[DESKTOP]', '').trim();
-          task.logs.single.push({ text: cleanLine, color: '#a7f3d0' });
+          const cleanLine = logLine.replace(/\[MOBILE\]|\[DESKTOP\]/g, '').trim();
+          if (cleanLine) task.logs.single.push({ text: cleanLine, color: '#a7f3d0' });
         } else {
+          // Strict log routing logic for Dual Split Screen
           if (logLine.includes('[MOBILE]')) {
             const cleanLine = logLine.replace('[MOBILE]', '').trim();
-            task.logs.mobile.push({ text: cleanLine, color: '#38bdf8' });
-          } else if (logLine.includes('[DESKTOP]')) {
-            const cleanLine = logLine.replace('[DESKTOP]', '').trim();
-            task.logs.desktop.push({ text: cleanLine, color: '#a7f3d0' });
+            if (cleanLine) task.logs.mobile.push({ text: cleanLine, color: '#38bdf8' });
           } else {
-            task.logs.desktop.push({ text: logLine, color: '#fbbf24' });
-            task.logs.mobile.push({ text: logLine, color: '#fbbf24' });
+            // General outputs & [DESKTOP] logs routed exclusively to Desktop screen
+            const cleanLine = logLine.replace('[DESKTOP]', '').trim();
+            if (cleanLine) task.logs.desktop.push({ text: cleanLine, color: '#a7f3d0' });
           }
         }
 
