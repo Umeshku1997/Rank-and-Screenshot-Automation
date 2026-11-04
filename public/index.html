@@ -966,9 +966,6 @@
 
       runningTasks[taskId] = task;
 
-      // EventSource connection to backend stream
-      task.eventSource = new EventSource(streamUrl);
-
       task.eventSource.onmessage = function(event) {
         const logLine = event.data;
         if (!logLine) return;
@@ -980,7 +977,7 @@
           const cleanLine = logLine.replace(/\[MOBILE\]|\[DESKTOP\]/g, '').trim();
           if (cleanLine) task.logs.single.push({ text: cleanLine, color: '#a7f3d0' });
         } else {
-          // Strict log routing logic for Dual Split Screen
+          // Strict Split Routing Logic
           if (logLine.includes('[MOBILE]')) {
             const cleanLine = logLine.replace('[MOBILE]', '').trim();
             if (cleanLine) task.logs.mobile.push({ text: cleanLine, color: '#38bdf8' });
@@ -991,6 +988,10 @@
           }
         }
 
+        if (activeTaskId === taskId) {
+          updateTerminalLogs(task);
+        }
+      };
         if (activeTaskId === taskId) {
           updateTerminalLogs(task);
         }
