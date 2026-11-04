@@ -78,7 +78,9 @@ function runScript(req, res, forceScript) {
             ...process.env,
             PYTHONUNBUFFERED: '1',
             PYTHONIOENCODING: 'utf-8',
-            DISPLAY: process.env.DISPLAY || ':99'
+            DISPLAY: process.env.DISPLAY || ':99',
+            CHROME_BIN: process.env.CHROME_BIN || '/usr/bin/chromium',
+            CHROMEDRIVER_PATH: process.env.CHROMEDRIVER_PATH || '/usr/bin/chromedriver'
         }
     });
 
