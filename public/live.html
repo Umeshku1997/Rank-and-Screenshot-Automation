@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rank Automation – Live Control</title>
+<style>
+  :root {
+    --bg: #f4f5fb; --card: #ffffff; --text: #0f172a; --muted: #64748b;
+    --line: #e2e8f0; --brand: #4f46e5; --brand-d: #4338ca;
+    --ok: #16a34a; --warn: #d97706; --bad: #dc2626;
+    --term-bg: #0b1020; --term-text: #cbd5e1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0b1020; --card:#131a2e; --text:#e5e7eb; --muted:#94a3b8; --line:#243049; --term-bg:#070b16; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Inter, system-ui, Arial, sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; background:var(--card); border-bottom:1px solid var(--line); }
+  header h1 { font-size:18px; margin:0; }
+  header a { color:var(--brand); text-decoration:none; font-size:14px; }
+  main { padding:18px 22px; max-width:1600px; margin:0 auto; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; }
+  button, .btn { font:600 14px Inter, Arial, sans-serif; padding:10px 16px; border-radius:10px; border:0; cursor:pointer; background:var(--brand); color:#fff; text-decoration:none; display:inline-block; }
+  button:hover, .btn:hover { background:var(--brand-d); }
+  button.sec, .btn.sec { background:var(--card); color:var(--text); border:1px solid var(--line); }
+  button.stop { background:var(--bad); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .badge { padding:6px 12px; border-radius:999px; font:600 13px Inter, Arial, sans-serif; border:1px solid var(--line); background:var(--card); }
+  .badge.run { color:var(--ok); } .badge.done { color:var(--muted); } .badge.err { color:var(--bad); }
+  .alert { display:none; margin-bottom:14px; padding:12px 16px; border-radius:10px; background:#fef3c7; color:#78350f; border:1px solid #fcd34d; font-weight:600; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; }
+  .card h2 { margin:0; font-size:14px; padding:10px 14px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
+  .term { background:var(--term-bg); color:var(--term-text); font:12px/1.5 ui-monospace, Consolas, monospace; padding:10px 14px; height:560px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+  .term .d { color:#7dd3fc; } .term .m { color:#f0abfc; } .term .e { color:#fca5a5; } .term .w { color:#fcd34d; }
+  iframe { width:100%; height:560px; border:0; background:#000; }
+  .vnc-empty { height:560px; display:flex; align-items:center; justify-content:center; color:var(--muted); text-align:center; padding:20px; }
+  .files { padding:12px 14px; font-size:13px; }
+  .files a { color:var(--brand); }
+  .files li { margin:4px 0; }
+  .note { color:var(--muted); font-size:12px; padding:0 14px 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔎 Rank Automation – Live Control</h1>
+  <a href="/">← Dashboard</a>
+</header>
+
+<main>
+  <div class="bar">
+    <button id="bBoth">▶ Desktop + Mobile saath me</button>
+    <button id="bDesk" class="sec">🖥️ Sirf Desktop</button>
+    <button id="bMob" class="sec">📱 Sirf Mobile</button>
+    <button id="bStop" class="stop" disabled>■ Stop</button>
+    <span id="status" class="badge done">Taiyar</span>
+  </div>
+
+  <div id="captchaAlert" class="alert">
+    ⚠️ Google ne CAPTCHA/verification manga hai. Neeche <b>Live Browser</b> me jaakar use solve karein. Solve hote hi script khud aage badh jayegi.
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Live Output <button class="sec" id="bClear" style="padding:4px 10px;font-size:12px">Clear</button></h2>
+      <div id="term" class="term">Koi run shuru nahi hua. Upar se button dabayein.</div>
+    </section>
+
+    <section class="card">
+      <h2>Live Browser (CAPTCHA yahin solve karein)
+        <span>
+          <button class="sec" id="bVnc" style="padding:4px 10px;font-size:12px">Browser dikhayein</button>
+          <a class="btn sec" id="bVncTab" target="_blank" style="padding:4px 10px;font-size:12px">Naye tab me</a>
+        </span>
+      </h2>
+      <div id="vncBox"><div class="vnc-empty">Jab CAPTCHA aaye (ya jab bhi dekhna ho) “Browser dikhayein” dabayein.<br>Mouse se click karke verification pura karein.</div></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Results Download <button class="sec" id="bFiles" style="padding:4px 10px;font-size:12px">Refresh</button></h2>
+    <div class="files">
+      <a class="btn" href="/download/results.zip">⬇ Sab kuch ZIP me (Excel + CSV + Screenshots)</a>
+      <ul id="fileList"></ul>
+    </div>
+    <div class="note">Dhyan rakhein: naya run shuru hone par purana data delete ho jata hai, isliye run khatam hote hi download kar lein.</div>
+  </section>
+</main>
+
+<script>
+const term = document.getElementById('term');
+const statusEl = document.getElementById('status');
+const alertEl = document.getElementById('captchaAlert');
+const bStop = document.getElementById('bStop');
+const runBtns = ['bBoth','bDesk','bMob'].map(id => document.getElementById(id));
+let es = null;
+let vncOpen = false;
+
+const vncUrl = '/novnc/vnc.html?autoconnect=true&resize=scale&reconnect=true&path=websockify';
+document.getElementById('bVncTab').href = vncUrl;
+
+function setStatus(text, cls) { statusEl.textContent = text; statusEl.className = 'badge ' + cls; }
+function setRunning(on) {
+  runBtns.forEach(b => b.disabled = on);
+  bStop.disabled = !on;
+}
+function esc(s) { return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function addLine(text) {
+  let cls = '';
+  if (/^\[DESKTOP/.test(text)) cls = 'd';
+  else if (/^\[MOBILE/.test(text)) cls = 'm';
+  if (/error|❌|Traceback|EXEC ERROR/i.test(text)) cls = 'e';
+  if (/CAPTCHA|BLOCK|blocked/i.test(text)) { cls = 'w'; showCaptcha(); }
+  if (/block cleared|access restored/i.test(text)) hideCaptcha();
+  const div = document.createElement('div');
+  if (cls) div.className = cls;
+  div.innerHTML = esc(text);
+  const atBottom = term.scrollTop + term.clientHeight >= term.scrollHeight - 40;
+  term.appendChild(div);
+  if (atBottom) term.scrollTop = term.scrollHeight;
+}
+
+function showCaptcha() {
+  alertEl.style.display = 'block';
+  if (!vncOpen) openVnc();
+}
+function hideCaptcha() { alertEl.style.display = 'none'; }
+
+function openVnc() {
+  vncOpen = true;
+  document.getElementById('vncBox').innerHTML = '<iframe src="' + vncUrl + '" allow="clipboard-read; clipboard-write"></iframe>';
+}
+document.getElementById('bVnc').onclick = () => { openVnc(); };
+
+function connect(url) {
+  if (es) es.close();
+  term.innerHTML = '';
+  setRunning(true);
+  setStatus('Chal raha hai…', 'run');
+  es = new EventSource(url);
+  es.onmessage = (ev) => {
+    addLine(ev.data);
+    if (ev.data.startsWith('[Task Complete]')) finish(ev.data);
+  };
+  es.onerror = () => {
+    // server band/restart ya network issue: status se dobara check karo
+    es.close();
+    setTimeout(checkStatus, 2000);
+  };
+}
+
+function finish(msg) {
+  if (es) es.close();
+  setRunning(false);
+  hideCaptcha();
+  const ok = /Exit code: 0/.test(msg);
+  setStatus(ok ? 'Complete ✅' : 'Khatam (check output)', ok ? 'done' : 'err');
+  loadFiles();
+}
+
+async function checkStatus() {
+  try {
+    const r = await fetch('/api/job/status');
+    const s = await r.json();
+    if (s.running) {
+      if (!es || es.readyState === 2) connect('/api/job/stream');
+    } else if (s.lines > 0 && term.textContent.startsWith('Koi run')) {
+      connect('/api/job/stream'); // purana log dikhao
+    } else {
+      setRunning(false);
+    }
+  } catch (e) {
+    setStatus('Server se connect nahi ho paa raha (wake ho raha hoga)…', 'err');
+    setTimeout(checkStatus, 5000);
+  }
+}
+
+document.getElementById('bBoth').onclick = () => connect('/api/stream/together');
+document.getElementById('bDesk').onclick = () => connect('/api/stream/desktop');
+document.getElementById('bMob').onclick  = () => connect('/api/stream/mobile');
+bStop.onclick = async () => { await fetch('/api/job/stop'); };
+document.getElementById('bClear').onclick = () => { term.innerHTML = ''; };
+
+async function loadFiles() {
+  const ul = document.getElementById('fileList');
+  try {
+    const files = await (await fetch('/api/files')).json();
+    const main = files.filter(f => !f.path.startsWith('Screenshots/'));
+    const shots = files.filter(f => f.path.startsWith('Screenshots/'));
+    let html = '';
+    main.forEach(f => {
+      html += '<li>📊 <a href="/download?file=' + encodeURIComponent(f.path) + '">' + esc(f.path) + '</a> (' + Math.round(f.size/1024) + ' KB)</li>';
+    });
+    html += '<li>📸 Screenshots: ' + shots.length + ' file(s) – ZIP me milenge</li>';
+    ul.innerHTML = html;
+  } catch (e) { ul.innerHTML = '<li>Files load nahi hui.</li>'; }
+}
+document.getElementById('bFiles').onclick = loadFiles;
+
+loadFiles();
+checkStatus();
+</script>
+</body>
+</html>
