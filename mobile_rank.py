@@ -67,7 +67,7 @@ BLOCK_RETRY_DELAY = 30
 
 # In run_both.py (one shared terminal) ENTER cannot be pressed for one script, so the script
 # keeps checking by itself for this many seconds whether the verification was solved in Chrome.
-BLOCK_AUTO_WAIT_SECONDS = 600
+BLOCK_AUTO_WAIT_SECONDS = 900
 
 
 # True  = delete ALL previous data (Excel, CSV, Screenshots) on EVERY run -> fresh start, new files.
@@ -1274,11 +1274,11 @@ def handle_google_block(driver):
         print("✅ Google access restored.")
         return True
 
-    if os.environ.get("RANK_LAUNCHED"):
+    if os.environ.get("RANK_LAUNCHED") or sys.platform != "win32":
 
-        # run_both.py: both scripts share one terminal -> no input(), wait automatically
+        # run_both.py / Render server: both scripts share one terminal -> no input(), wait automatically
         print(
-            f"👉 Solve the verification in Chrome. "
+            f"👉 Solve the CAPTCHA in the Live Browser panel (dashboard). "
             f"It will keep checking by itself for {BLOCK_AUTO_WAIT_SECONDS} sec..."
         )
 
@@ -2083,12 +2083,14 @@ def build_options(custom_device=False, profile=CHROME_PROFILE):
 
     options = Options()
 
-    # Render Headless Options Setup
+    # Render / Linux: visible Chrome on a virtual screen (Xvfb, DISPLAY=:99).
+    # The dashboard shows this screen (Live Browser) so a Google CAPTCHA can be solved by hand.
     if sys.platform != "win32":
-        options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
+        options.add_argument("--window-position=1300,0")
+        options.add_argument("--window-size=560,1000")
         chrome_bin = os.environ.get("CHROME_BIN", "/usr/bin/chromium")
         if os.path.exists(chrome_bin):
             options.binary_location = chrome_bin
