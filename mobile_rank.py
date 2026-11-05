@@ -2091,6 +2091,13 @@ def build_options(custom_device=False, profile=CHROME_PROFILE):
         options.add_argument("--disable-gpu")
         options.add_argument("--window-position=1300,0")
         options.add_argument("--window-size=560,1000")
+        # memory kam karne ke flags (Render RAM kam hoti hai)
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-sync")
+        options.add_argument("--mute-audio")
+        options.add_argument("--renderer-process-limit=1")
+        options.add_argument("--disable-features=Translate,IsolateOrigins,site-per-process")
         chrome_bin = os.environ.get("CHROME_BIN", "/usr/bin/chromium")
         if os.path.exists(chrome_bin):
             options.binary_location = chrome_bin
