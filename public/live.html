@@ -113,7 +113,7 @@ function addLine(text) {
   if (/^\[DESKTOP/.test(text)) cls = 'd';
   else if (/^\[MOBILE/.test(text)) cls = 'm';
   if (/error|❌|Traceback|EXEC ERROR/i.test(text)) cls = 'e';
-  if (/CAPTCHA|BLOCK|blocked/i.test(text)) { cls = 'w'; showCaptcha(); }
+  if (/BLOCK \/ CAPTCHA DETECTED|Google blocked this search|Solve the CAPTCHA in the Live Browser/i.test(text)) { cls = 'w'; showCaptcha(); }
   if (/block cleared|access restored/i.test(text)) hideCaptcha();
   const div = document.createElement('div');
   if (cls) div.className = cls;
